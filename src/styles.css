@@ -1,0 +1,201 @@
+@import "tailwindcss" source(none);
+@source "../src";
+@import "tw-animate-css";
+
+@import "@fontsource/cairo/400.css";
+@import "@fontsource/cairo/600.css";
+@import "@fontsource/cairo/700.css";
+@import "@fontsource/cairo/900.css";
+@import "@fontsource/tajawal/500.css";
+@import "@fontsource/tajawal/700.css";
+
+@custom-variant dark (&:is(.dark *));
+
+/* ===========================================================
+   كنيسة القديس مارمرقس والبابا أثناسيوس — Design System
+   Palette: warm beige paper, deep navy, soft teal, accent green.
+   =========================================================== */
+
+@theme inline {
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 4px);
+  --radius-2xl: calc(var(--radius) + 8px);
+  --radius-3xl: calc(var(--radius) + 14px);
+  --radius-4xl: calc(var(--radius) + 22px);
+
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+  --color-success: var(--success);
+  --color-success-foreground: var(--success-foreground);
+  --color-teal: var(--teal);
+  --color-sky: var(--sky);
+  --color-paper: var(--paper);
+  --color-paper-2: var(--paper-2);
+  --color-ink: var(--ink);
+  --color-chart-1: var(--chart-1);
+  --color-chart-2: var(--chart-2);
+  --color-chart-3: var(--chart-3);
+  --color-chart-4: var(--chart-4);
+  --color-chart-5: var(--chart-5);
+
+  --font-display: "Cairo", "Tajawal", system-ui, sans-serif;
+  --font-body: "Tajawal", "Cairo", system-ui, sans-serif;
+
+  --shadow-soft: 0 6px 24px -8px color-mix(in oklab, var(--ink) 18%, transparent);
+  --shadow-pill: 0 10px 28px -10px color-mix(in oklab, var(--ink) 35%, transparent);
+}
+
+:root {
+  --radius: 1rem;
+
+  /* Warm paper background, from the blueprint */
+  --background: oklch(0.952 0.034 84);            /* #F6EAC8 vibe */
+  --paper: oklch(0.965 0.028 86);
+  --paper-2: oklch(0.985 0.018 88);
+  --foreground: oklch(0.22 0.04 250);
+
+  /* Cards and pill chips */
+  --card: oklch(0.985 0.018 88);
+  --card-foreground: oklch(0.22 0.04 250);
+  --popover: oklch(0.985 0.018 88);
+  --popover-foreground: oklch(0.22 0.04 250);
+
+  /* Deep ecclesiastical navy */
+  --ink: oklch(0.22 0.04 250);
+  --primary: oklch(0.225 0.055 252);              /* dark navy chip */
+  --primary-foreground: oklch(0.985 0.012 90);
+
+  --secondary: oklch(0.92 0.03 86);
+  --secondary-foreground: oklch(0.22 0.04 250);
+
+  --muted: oklch(0.93 0.024 86);
+  --muted-foreground: oklch(0.42 0.03 250);
+
+  --accent: oklch(0.92 0.03 86);
+  --accent-foreground: oklch(0.22 0.04 250);
+
+  --destructive: oklch(0.58 0.22 27);
+  --destructive-foreground: oklch(0.985 0.012 90);
+
+  --border: oklch(0.86 0.03 84);
+  --input: oklch(0.93 0.024 86);
+  --ring: oklch(0.55 0.12 220);
+
+  /* Brand secondaries */
+  --teal: oklch(0.55 0.09 200);                   /* deep teal in charts */
+  --sky: oklch(0.78 0.09 230);                    /* light sky blue */
+  --success: oklch(0.66 0.18 150);                /* green pill */
+  --success-foreground: oklch(0.985 0.012 90);
+
+  /* Charts */
+  --chart-1: oklch(0.78 0.09 230);                /* light blue */
+  --chart-2: oklch(0.55 0.09 200);                /* teal */
+  --chart-3: oklch(0.30 0.06 250);                /* dark navy */
+  --chart-4: oklch(0.66 0.18 150);                /* green */
+  --chart-5: oklch(0.70 0.16 60);                 /* warm gold */
+
+  --sidebar: oklch(0.965 0.028 86);
+  --sidebar-foreground: oklch(0.22 0.04 250);
+  --sidebar-primary: oklch(0.225 0.055 252);
+  --sidebar-primary-foreground: oklch(0.985 0.012 90);
+  --sidebar-accent: oklch(0.92 0.03 86);
+  --sidebar-accent-foreground: oklch(0.22 0.04 250);
+  --sidebar-border: oklch(0.86 0.03 84);
+  --sidebar-ring: oklch(0.55 0.12 220);
+}
+
+.dark {
+  --background: oklch(0.18 0.03 250);
+  --paper: oklch(0.22 0.035 250);
+  --paper-2: oklch(0.26 0.035 250);
+  --foreground: oklch(0.96 0.02 86);
+  --card: oklch(0.22 0.035 250);
+  --card-foreground: oklch(0.96 0.02 86);
+  --popover: oklch(0.22 0.035 250);
+  --popover-foreground: oklch(0.96 0.02 86);
+  --primary: oklch(0.92 0.03 86);
+  --primary-foreground: oklch(0.22 0.04 250);
+  --secondary: oklch(0.28 0.04 250);
+  --secondary-foreground: oklch(0.96 0.02 86);
+  --muted: oklch(0.28 0.04 250);
+  --muted-foreground: oklch(0.75 0.02 86);
+  --accent: oklch(0.28 0.04 250);
+  --accent-foreground: oklch(0.96 0.02 86);
+  --border: oklch(1 0 0 / 12%);
+  --input: oklch(1 0 0 / 15%);
+}
+
+@layer base {
+  html {
+    direction: rtl;
+  }
+  * { border-color: var(--color-border); }
+  body {
+    background-color: var(--color-background);
+    color: var(--color-foreground);
+    font-family: var(--font-body);
+    font-feature-settings: "ss01", "kern";
+  }
+  h1, h2, h3, h4, .display { font-family: var(--font-display); font-weight: 700; }
+}
+
+/* Reusable utilities */
+@utility chip-dark {
+  background-color: var(--color-primary);
+  color: var(--color-primary-foreground);
+  border-radius: 999px;
+  padding: 0.85rem 1.75rem;
+  font-family: var(--font-display);
+  font-weight: 700;
+  box-shadow: var(--shadow-pill);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  letter-spacing: 0.01em;
+}
+
+@utility chip-green {
+  background-color: var(--color-success);
+  color: var(--color-success-foreground);
+  border-radius: 999px;
+  padding: 0.85rem 1.75rem;
+  font-family: var(--font-display);
+  font-weight: 700;
+  box-shadow: var(--shadow-pill);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+@utility paper-card {
+  background-color: var(--color-paper-2);
+  border-radius: 1.75rem;
+  box-shadow: var(--shadow-soft);
+  padding: 1.5rem;
+}
+
+@utility blueprint-grid {
+  background-image:
+    linear-gradient(to right, color-mix(in oklab, var(--color-ink) 6%, transparent) 1px, transparent 1px),
+    linear-gradient(to bottom, color-mix(in oklab, var(--color-ink) 6%, transparent) 1px, transparent 1px);
+  background-size: 32px 32px;
+}

@@ -1,0 +1,14 @@
+{
+  "cookies": [],
+  "origins": [
+    {
+      "origin": "http://127.0.0.1:3000",
+      "localStorage": [
+        {
+          "name": "sb-bqeknyebwjrawbktujrw-auth-token",
+          "value": "{\"access_token\":\"eyJhbGciOiJFUzI1NiIsImtpZCI6IjkxODVjNWY4LTUzMjYtNGYwMC1iYzM4LThmMzc3ZTE1MGZmZCIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJodHRwczovL2JxZWtueWVid2pyYXdia3R1anJ3LnN1cGFiYXNlLmNvL2F1dGgvdjEiLCJzdWIiOiJiMzkwZWYyOC0zOGRjLTQxNmEtODk3ZS0wMzU2NTU2MzdkMDgiLCJhdWQiOiJhdXRoZW50aWNhdGVkIiwiZXhwIjoxNzg1NTg0MTYwLCJpYXQiOjE3ODU1ODA1NjAsImVtYWlsIjoiZGV2LnNvbHV0dWluc0BnbWFpbC5jb20iLCJwaG9uZSI6IiIsImFwcF9tZXRhZGF0YSI6eyJwcm92aWRlciI6ImVtYWlsIiwicHJvdmlkZXJzIjpbImVtYWlsIl19LCJ1c2VyX21ldGFkYXRhIjp7ImVtYWlsX3ZlcmlmaWVkIjp0cnVlfSwicm9sZSI6ImF1dGhlbnRpY2F0ZWQiLCJhYWwiOiJhYWwxIiwiYW1yIjpbeyJtZXRob2QiOiJwYXNzd29yZCIsInRpbWVzdGFtcCI6MTc4NTU4MDU2MH1dLCJzZXNzaW9uX2lkIjoiOTIwYTRjYmQtY2FkOS00NWZiLWI0YjYtNjk1NmYxZjdkMTlmIiwiaXNfYW5vbnltb3VzIjpmYWxzZX0._xizrvQuZuwgIseYotebQ2HxJ8ZG-opW08gYf7dupkqdrVmqHcGfT3elZVRApjBRzHbr18QwYZ847qJf4hpi7w\",\"token_type\":\"bearer\",\"expires_in\":3600,\"expires_at\":1785584160,\"refresh_token\":\"or2svh5khjfk\",\"user\":{\"id\":\"b390ef28-38dc-416a-897e-035655637d08\",\"aud\":\"authenticated\",\"role\":\"authenticated\",\"email\":\"dev.solutuins@gmail.com\",\"email_confirmed_at\":\"2026-06-24T12:21:24.026735Z\",\"phone\":\"\",\"confirmed_at\":\"2026-06-24T12:21:24.026735Z\",\"last_sign_in_at\":\"2026-08-01T10:36:00.981002758Z\",\"app_metadata\":{\"provider\":\"email\",\"providers\":[\"email\"]},\"user_metadata\":{\"email_verified\":true},\"identities\":[{\"identity_id\":\"2949dcc1-42ed-4481-9e01-1a6588be8aaa\",\"id\":\"b390ef28-38dc-416a-897e-035655637d08\",\"user_id\":\"b390ef28-38dc-416a-897e-035655637d08\",\"identity_data\":{\"email\":\"dev.solutuins@gmail.com\",\"email_verified\":false,\"phone_verified\":false,\"sub\":\"b390ef28-38dc-416a-897e-035655637d08\"},\"provider\":\"email\",\"last_sign_in_at\":\"2026-06-24T12:21:24.019243Z\",\"created_at\":\"2026-06-24T12:21:24.019351Z\",\"updated_at\":\"2026-06-24T12:21:24.019351Z\",\"email\":\"dev.solutuins@gmail.com\"}],\"created_at\":\"2026-06-24T12:21:23.994623Z\",\"updated_at\":\"2026-08-01T10:36:00.986127Z\",\"is_anonymous\":false},\"weak_password\":null}"
+        }
+      ]
+    }
+  ]
+}
