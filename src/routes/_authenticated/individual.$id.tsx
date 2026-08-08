@@ -131,6 +131,7 @@ function IndividualPage() {
   if (editing && can("edit:beneficiary")) {
     const initialFamily: FamilyRow[] = family.length
       ? family.map((m: any) => ({
+          id: m.id,
           full_name: m.full_name,
           national_id: m.national_id ?? undefined,
           relation: m.relation ?? undefined,
@@ -151,6 +152,7 @@ function IndividualPage() {
 
     const initialChurchSupport: ChurchSupportRow[] = churchSupport?.length
       ? churchSupport.map((cs: any) => ({
+          id: cs.id,
           church_name: cs.church_name,
           amount: Number(cs.amount),
         }))

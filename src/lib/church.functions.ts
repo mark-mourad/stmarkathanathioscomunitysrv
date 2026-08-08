@@ -645,6 +645,7 @@ const individualSchema = z.object({
   family: z
     .array(
       z.object({
+        id: z.string().uuid().optional(),
         full_name: z.string().min(1),
         national_id: z.string().optional().nullable(),
         relation: z.string().optional().nullable(),
@@ -674,6 +675,7 @@ const individualSchema = z.object({
   churchSupport: z
     .array(
       z.object({
+        id: z.string().uuid().optional(),
         church_name: z.string().min(1),
         amount: z.number(),
       }),
@@ -788,11 +790,42 @@ export const updateIndividual = createServerFn({ method: "POST" })
     const { error: indErr } = await context.supabase.from("individuals").update(ind).eq("id", id);
     if (indErr) throw new Error(indErr.message);
 
-    await context.supabase.from("family_members").delete().eq("individual_id", id);
-    if (family?.length) {
-      const rows = family.map((f, i) => ({ ...f, seq: i + 1, individual_id: id }));
-      const { error: famErr } = await context.supabase.from("family_members").insert(rows);
-      if (famErr) throw new Error(famErr.message);
+    // Synchronize family members: update existing rows in-place (by id),
+    // insert new rows, and delete rows that were removed from the form.
+    const submittedFamily = family ?? [];
+    const { data: existingFamily } = await context.supabase
+      .from("family_members")
+      .select("id")
+      .eq("individual_id", id);
+    const existingFamilyIds = new Set((existingFamily ?? []).map((r) => r.id));
+    const submittedFamilyIds = submittedFamily
+      .map((f) => f.id)
+      .filter((fid): fid is string => Boolean(fid));
+    const removedFamilyIds = [...existingFamilyIds].filter(
+      (existingId) => !submittedFamilyIds.includes(existingId),
+    );
+    if (removedFamilyIds.length > 0) {
+      const { error: famDelErr } = await context.supabase
+        .from("family_members")
+        .delete()
+        .in("id", removedFamilyIds);
+      if (famDelErr) throw new Error(famDelErr.message);
+    }
+    let seq = 1;
+    for (const f of submittedFamily) {
+      const { id: famId, ...familyFields } = f;
+      if (famId && existingFamilyIds.has(famId)) {
+        const { error: famUpdErr } = await context.supabase
+          .from("family_members")
+          .update({ ...familyFields, seq: seq++ })
+          .eq("id", famId);
+        if (famUpdErr) throw new Error(famUpdErr.message);
+      } else {
+        const { error: famInsErr } = await context.supabase
+          .from("family_members")
+          .insert({ ...familyFields, seq: seq++, individual_id: id });
+        if (famInsErr) throw new Error(famInsErr.message);
+      }
     }
 
     if (financials) {
@@ -815,14 +848,41 @@ export const updateIndividual = createServerFn({ method: "POST" })
       }
     }
 
-    // Handle church support - delete existing and insert new
-    await context.supabase.from("monthly_church_support").delete().eq("individual_id", id);
-    if (churchSupport?.length) {
-      const supportRows = churchSupport.map((cs) => ({ ...cs, individual_id: id }));
-      const { error: supportErr } = await context.supabase
+    // Synchronize church support: update existing rows in-place (by id),
+    // insert new rows, and delete rows that were removed from the form.
+    const submittedSupport = churchSupport ?? [];
+    const { data: existingSupport } = await context.supabase
+      .from("monthly_church_support")
+      .select("id")
+      .eq("individual_id", id);
+    const existingSupportIds = new Set((existingSupport ?? []).map((r) => r.id));
+    const submittedSupportIds = submittedSupport
+      .map((cs) => cs.id)
+      .filter((cid): cid is string => Boolean(cid));
+    const removedSupportIds = [...existingSupportIds].filter(
+      (existingId) => !submittedSupportIds.includes(existingId),
+    );
+    if (removedSupportIds.length > 0) {
+      const { error: supportDelErr } = await context.supabase
         .from("monthly_church_support")
-        .insert(supportRows);
-      if (supportErr) throw new Error(supportErr.message);
+        .delete()
+        .in("id", removedSupportIds);
+      if (supportDelErr) throw new Error(supportDelErr.message);
+    }
+    for (const cs of submittedSupport) {
+      const { id: supportId, ...supportFields } = cs;
+      if (supportId && existingSupportIds.has(supportId)) {
+        const { error: supportUpdErr } = await context.supabase
+          .from("monthly_church_support")
+          .update(supportFields)
+          .eq("id", supportId);
+        if (supportUpdErr) throw new Error(supportUpdErr.message);
+      } else {
+        const { error: supportInsErr } = await context.supabase
+          .from("monthly_church_support")
+          .insert({ ...supportFields, individual_id: id });
+        if (supportInsErr) throw new Error(supportInsErr.message);
+      }
     }
 
     return { id };

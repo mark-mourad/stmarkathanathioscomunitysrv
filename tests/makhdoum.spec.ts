@@ -50,6 +50,16 @@ test.describe('Makhdoum management CRUD', () => {
     await page.getByRole('button', { name: 'حفظ التعديلات' }).click();
     await expect(page.getByText('تم حفظ التعديلات')).toBeVisible({ timeout: 45_000 });
 
+    // Regression: saving an edit must NOT duplicate the family members array.
+    await expect(page.getByText('أبناء QA')).toHaveCount(1);
+
+    // Second edit cycle — must still keep exactly one copy of each family member.
+    await page.getByRole('button', { name: 'تعديل' }).click();
+    await page.getByLabel('رقم الموبايل').fill('01222222222');
+    await page.getByRole('button', { name: 'حفظ التعديلات' }).click();
+    await expect(page.getByText('تم حفظ التعديلات')).toBeVisible({ timeout: 45_000 });
+    await expect(page.getByText('أبناء QA')).toHaveCount(1);
+
     await page.getByRole('button', { name: 'حذف' }).click();
     await page.getByRole('button', { name: 'حذف نهائياً' }).click();
     await expect(page.getByText('تم حذف الملف')).toBeVisible({ timeout: 45_000 });

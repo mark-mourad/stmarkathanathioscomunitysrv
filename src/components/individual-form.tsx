@@ -152,6 +152,7 @@ function calculateAgeFromBirthDate(birthDate: string | null): number | null {
 }
 
 export type FamilyRow = {
+  id?: string;
   full_name: string;
   national_id?: string;
   relation?: string;
@@ -177,6 +178,7 @@ export const APPLIANCES = [
 ] as const;
 
 export type ChurchSupportRow = {
+  id?: string;
   church_name: string;
   amount: number;
 };
@@ -846,6 +848,7 @@ export function buildIndividualPayload({ ind, family, fin, churchSupport }: Indi
     alt_address: ind.alt_address ?? null,
     alt_governorate: ind.alt_governorate ?? null,
     family: cleanFamily.map((f) => ({
+      id: f.id,
       full_name: f.full_name,
       national_id: f.national_id ?? null,
       relation: f.relation === "آخر" ? (f.relation_custom ?? null) : (f.relation ?? null),
@@ -869,6 +872,7 @@ export function buildIndividualPayload({ ind, family, fin, churchSupport }: Indi
       education_cost: Number(fin.education_cost || 0),
     },
     churchSupport: cleanChurchSupport.map((cs) => ({
+      id: cs.id,
       church_name: cs.church_name,
       amount: Number(cs.amount || 0),
     })),
