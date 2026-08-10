@@ -12,6 +12,7 @@ import { useEffect, type ReactNode } from "react";
 import { Toaster } from "sonner";
 
 import appCss from "../styles.css?url";
+import faviconIcon from "../assets/favicon.png.ico";
 import { reportLovableError } from "../lib/lovable-error-reporting";
 import { useAuth } from "@/hooks/use-auth";
 
@@ -99,7 +100,10 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary" },
     ],
-    links: [{ rel: "stylesheet", href: appCss }],
+    links: [
+      { rel: "stylesheet", href: appCss },
+      { rel: "icon", type: "image/x-icon", href: faviconIcon },
+    ],
   }),
   shellComponent: RootShell,
   component: RootComponent,
