@@ -104,8 +104,7 @@ function Dashboard() {
   const hiddenStudy = scopedHiddenFamilies ? Number(scopedHiddenFamilies.study) : 0;
   const hiddenTherapeutic = scopedHiddenFamilies ? Number(scopedHiddenFamilies.therapeutic) : 0;
 
-  const totalMonthly =
-    scopedMetrics.reduce((s, m) => s + Number(m.monthly), 0) + hiddenMonthly;
+  const totalMonthly = scopedMetrics.reduce((s, m) => s + Number(m.monthly), 0) + hiddenMonthly;
   const totalStudy = scopedMetrics.reduce((s, m) => s + Number(m.study), 0) + hiddenStudy;
   const totalTherapeutic =
     scopedMetrics.reduce((s, m) => s + Number(m.therapeutic), 0) + hiddenTherapeutic;
@@ -124,24 +123,26 @@ function Dashboard() {
   ];
 
   return (
-    <div className="space-y-6 md:space-y-8">
+    <div className="space-y-4 sm:space-y-6 md:space-y-8">
       {/* ═══════ Zone 1: Summary Cards — Admins (global) & family servants (scoped to assigned family) ═══════ */}
       {(isAdmin || isFamilyServant) && (
-        <section className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        <section className="grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-4">
           {summaryCards.map((card) => (
             <article
               key={card.label}
-              className="paper-card flex items-center gap-4"
+              className="paper-card !p-3 sm:!p-6 flex flex-col items-start gap-2 sm:flex-row sm:items-center sm:gap-4"
               onDoubleClick={() =>
                 isAdmin && card.label === "إجمالي الخارج" && metrics[0] && setEditing(metrics[0])
               }
             >
-              <div className={`rounded-xl p-3 ${card.color}`}>
-                <card.icon size={22} />
+              <div className={`rounded-xl p-2 sm:p-3 shrink-0 ${card.color}`}>
+                <card.icon size={22} className="size-[18px] sm:size-[22px]" />
               </div>
-              <div className="min-w-0">
-                <p className="text-xs text-muted-foreground truncate">{card.label}</p>
-                <p className="display text-xl text-ink tabular-nums">
+              <div className="min-w-0 w-full sm:w-auto">
+                <p className="text-[11px] sm:text-xs text-muted-foreground truncate">
+                  {card.label}
+                </p>
+                <p className="display text-lg sm:text-xl text-ink tabular-nums truncate">
                   {card.value.toLocaleString("ar-EG")}
                 </p>
               </div>
@@ -151,12 +152,14 @@ function Dashboard() {
       )}
 
       {/* ═══════ Quick Actions — Unified for ALL roles (click-intercepted) ═══════ */}
-      <section className="flex flex-wrap gap-3">
+      {/* Phones: 2-column grid; the green "add" action spans the full first row. lg+ keeps the single wrapping row. */}
+      <section className="grid grid-cols-2 gap-2 sm:gap-3 lg:flex lg:flex-wrap">
         <QuickActionButton
           to="/add"
           icon={<UserPlus size={16} />}
           label="إضافة مخدوم"
           color="green"
+          className="col-span-2 lg:col-auto"
           restricted={[
             "SUPPLY_WAREHOUSE_MANAGER",
             "FURNITURE_WAREHOUSE_MANAGER",
@@ -227,11 +230,7 @@ function Dashboard() {
         <QuickActionButton
           to="/pharmacy"
           icon={<Pill size={16} />}
-          label={
-            role === "PHARMACY_WAREHOUSE_MANAGER"
-              ? "إدارة مخزن الصيدلية"
-              : "الصيدلية"
-          }
+          label={role === "PHARMACY_WAREHOUSE_MANAGER" ? "إدارة مخزن الصيدلية" : "الصيدلية"}
           color="dark"
           restricted={[
             "SUPPLY_WAREHOUSE_MANAGER",
@@ -244,11 +243,7 @@ function Dashboard() {
         <QuickActionButton
           to="/inventory"
           icon={<Package size={16} />}
-          label={
-            role === "SUPPLY_WAREHOUSE_MANAGER"
-              ? "إدارة مخزن التموين"
-              : "المخزن"
-          }
+          label={role === "SUPPLY_WAREHOUSE_MANAGER" ? "إدارة مخزن التموين" : "المخزن"}
           color="dark"
           restricted={[
             "ST_MATTHEW",
@@ -267,19 +262,19 @@ function Dashboard() {
 
       {/* ═══════ Zone 2: Charts Grid — Only for SUPER_ADMIN & ADMIN ═══════ */}
       {isAdmin && (
-        <section className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <section className="grid grid-cols-1 gap-4 sm:gap-6 lg:grid-cols-2">
           {/* Bar Chart */}
-          <article className="paper-card">
-            <div className="flex items-center justify-between mb-4">
-              <h2 className="display text-sm text-muted-foreground">مصاريف القطاعات</h2>
+          <article className="paper-card !p-4 sm:!p-6 min-w-0">
+            <div className="flex items-center justify-between gap-2 mb-4">
+              <h2 className="display text-sm text-muted-foreground min-w-0">مصاريف القطاعات</h2>
               <button
                 onClick={() => metrics[0] && setEditing(metrics[0])}
-                className="text-xs text-muted-foreground hover:text-primary transition flex items-center gap-1"
+                className="shrink-0 flex items-center justify-center gap-1 min-h-11 min-w-11 px-2 rounded-full text-xs text-muted-foreground hover:text-primary hover:bg-primary/10 transition"
               >
                 <Pencil size={12} /> تعديل
               </button>
             </div>
-            <div className="h-72 relative z-0">
+            <div className="h-56 sm:h-72 relative z-0">
               <ResponsiveContainer>
                 <BarChart
                   data={metrics}
@@ -304,7 +299,7 @@ function Dashboard() {
                       borderRadius: 12,
                     }}
                   />
-                  <Legend wrapperStyle={{ fontSize: 12 }} />
+                  <Legend content={renderChartLegend} />
                   <Bar
                     dataKey="monthly"
                     stackId="a"
@@ -336,12 +331,37 @@ function Dashboard() {
 
       {/* ═══════ Zone 3: Recent Activity ═══════ */}
       {can("view:audit") && auditLog.length > 0 && (
-        <section className="paper-card">
+        <section className="paper-card !p-4 sm:!p-6">
           <div className="flex items-center gap-2 mb-4">
             <Activity size={16} className="text-muted-foreground" />
             <h2 className="display text-sm text-muted-foreground">آخر النشاطات</h2>
           </div>
-          <div className="overflow-x-auto">
+
+          {/* Phones: stacked label/value cards (the table below is hidden) */}
+          <ul className="space-y-2 md:hidden">
+            {auditLog.map((entry) => (
+              <li
+                key={entry.id}
+                className="rounded-xl border border-border/40 bg-paper px-3 py-2.5"
+              >
+                <dl className="grid grid-cols-[auto_1fr] gap-x-3 gap-y-1 text-xs">
+                  <dt className="text-muted-foreground">المستخدم</dt>
+                  <dd className="min-w-0 break-words text-foreground/80">{entry.user_email}</dd>
+                  <dt className="text-muted-foreground">الإجراء</dt>
+                  <dd className="min-w-0 break-words text-foreground/80">{entry.action}</dd>
+                  <dt className="text-muted-foreground">الجدول</dt>
+                  <dd className="min-w-0 break-words text-foreground/60">{entry.table_name}</dd>
+                  <dt className="text-muted-foreground">التاريخ</dt>
+                  <dd className="min-w-0 break-words text-muted-foreground">
+                    {formatAuditDate(entry.created_at)}
+                  </dd>
+                </dl>
+              </li>
+            ))}
+          </ul>
+
+          {/* md and up: the original table */}
+          <div className="hidden md:block overflow-x-auto">
             <table className="w-full text-sm">
               <thead>
                 <tr className="border-b border-border/60 text-muted-foreground text-xs">
@@ -358,13 +378,7 @@ function Dashboard() {
                     <td className="py-2 text-foreground/80">{entry.action}</td>
                     <td className="py-2 text-foreground/60">{entry.table_name}</td>
                     <td className="py-2 text-muted-foreground hidden sm:table-cell">
-                      {new Date(entry.created_at).toLocaleDateString("ar-EG", {
-                        year: "numeric",
-                        month: "short",
-                        day: "numeric",
-                        hour: "2-digit",
-                        minute: "2-digit",
-                      })}
+                      {formatAuditDate(entry.created_at)}
                     </td>
                   </tr>
                 ))}
@@ -376,8 +390,8 @@ function Dashboard() {
 
       {/* ═══════ Admin Edit Panels (hidden on larger screens, shown as fallback) ═══════ */}
       {isAdmin && metrics.length > 0 && (
-        <section className="grid grid-cols-1 sm:grid-cols-2 gap-4 lg:hidden">
-          <div className="paper-card">
+        <section className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:hidden">
+          <div className="paper-card !p-4 sm:!p-6">
             <h3 className="display text-sm text-muted-foreground mb-3 flex items-center gap-2">
               <Pencil size={14} /> تعديل قيم القطاعات
             </h3>
@@ -386,7 +400,7 @@ function Dashboard() {
                 <button
                   key={m.id}
                   onClick={() => setEditing(m)}
-                  className="w-full text-start px-3 py-2 rounded-xl hover:bg-primary/10 text-sm transition"
+                  className="w-full min-h-11 flex items-center text-start px-3 py-2 rounded-xl hover:bg-primary/10 text-sm transition"
                 >
                   {m.sector}
                 </button>
@@ -394,13 +408,13 @@ function Dashboard() {
             </div>
           </div>
           {hiddenFamilies && (
-            <div className="paper-card">
+            <div className="paper-card !p-4 sm:!p-6">
               <h3 className="display text-sm text-muted-foreground mb-3 flex items-center gap-2">
                 <Pencil size={14} /> تعديل الأسر المستترة
               </h3>
               <button
                 onClick={() => setEditingHidden(true)}
-                className="w-full text-start px-3 py-2 rounded-xl hover:bg-primary/10 text-sm transition"
+                className="w-full min-h-11 flex items-center text-start px-3 py-2 rounded-xl hover:bg-primary/10 text-sm transition"
               >
                 الشهريات · المساعدات الدراسية · المساعدات العلاجية
               </button>
@@ -465,27 +479,28 @@ function HiddenFamiliesPieCard({
   const PIE_COLORS = ["var(--color-sky)", "var(--color-teal)", "var(--color-chart-3)"];
 
   return (
-    <article className="paper-card">
-      <div className="flex items-center justify-between mb-4">
-        <h2 className="display text-sm text-muted-foreground">الأسر المستترة</h2>
+    <article className="paper-card !p-4 sm:!p-6 min-w-0">
+      <div className="flex items-center justify-between gap-2 mb-4">
+        <h2 className="display text-sm text-muted-foreground min-w-0">الأسر المستترة</h2>
         {editable && (
           <button
             onClick={onEdit}
-            className="text-xs text-muted-foreground hover:text-primary transition flex items-center gap-1"
+            className="shrink-0 flex items-center justify-center gap-1 min-h-11 min-w-11 px-2 rounded-full text-xs text-muted-foreground hover:text-primary hover:bg-primary/10 transition"
           >
             <Pencil size={12} /> تعديل
           </button>
         )}
       </div>
-      <div className="h-64">
+      <div className="h-[220px] sm:h-64">
         <ResponsiveContainer>
           <PieChart>
-            <Pie data={pieData} dataKey="value" nameKey="name" outerRadius={90} label>
+            {/* Percentage radius so the pie shrinks with the card instead of overflowing on phones. */}
+            <Pie data={pieData} dataKey="value" nameKey="name" outerRadius="68%" label>
               {pieData.map((_, i) => (
                 <Cell key={i} fill={PIE_COLORS[i]} />
               ))}
             </Pie>
-            <Legend wrapperStyle={{ fontSize: 12 }} />
+            <Legend content={renderChartLegend} />
             <Tooltip />
           </PieChart>
         </ResponsiveContainer>
@@ -494,12 +509,50 @@ function HiddenFamiliesPieCard({
   );
 }
 
+/** Recharts legend that wraps and centres instead of overflowing on narrow screens. */
+type ChartLegendPayloadItem = { value?: string; color?: string };
+
+function ChartLegend({ payload }: { payload?: ChartLegendPayloadItem[] }) {
+  if (!payload?.length) return null;
+  return (
+    <ul className="mt-2 flex flex-wrap items-center justify-center gap-x-4 gap-y-1.5">
+      {payload.map((item, i) => (
+        <li
+          key={`${item.value}-${i}`}
+          className="flex items-center gap-1.5 text-xs text-muted-foreground"
+        >
+          <span
+            className="size-2.5 shrink-0 rounded-[2px]"
+            style={{ backgroundColor: item.color }}
+          />
+          <span className="min-w-0">{item.value}</span>
+        </li>
+      ))}
+    </ul>
+  );
+}
+
+function renderChartLegend(props: { payload?: ChartLegendPayloadItem[] }) {
+  return <ChartLegend payload={props?.payload} />;
+}
+
+function formatAuditDate(iso: string) {
+  return new Date(iso).toLocaleDateString("ar-EG", {
+    year: "numeric",
+    month: "short",
+    day: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+}
+
 function QuickActionButton({
   to,
   search,
   icon,
   label,
   color,
+  className,
   restricted,
   role,
 }: {
@@ -508,6 +561,7 @@ function QuickActionButton({
   icon: React.ReactNode;
   label: string;
   color: "green" | "dark";
+  className?: string;
   restricted: string[];
   role: string | null;
 }) {
@@ -522,9 +576,18 @@ function QuickActionButton({
           toast.error("غير مصرح لك بهذا الحقل");
         }
       }}
-      className={`${cls} text-sm !py-2.5 !px-5`}
+      className={
+        `${cls} w-full min-h-11 !px-3 !py-2 text-[11px] sm:text-xs leading-tight text-center ` +
+        `lg:min-h-0 lg:w-auto lg:!px-5 lg:!py-2.5 lg:text-sm lg:leading-normal ` +
+        (className ?? "")
+      }
     >
-      {icon && <span className="ms-1.5">{icon}</span>} {label}
+      {icon && (
+        <span className="ms-1.5 shrink-0 flex items-center [&>svg]:size-3.5 lg:[&>svg]:size-4">
+          {icon}
+        </span>
+      )}
+      <span className="min-w-0">{label}</span>
     </Link>
   );
 }

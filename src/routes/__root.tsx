@@ -16,6 +16,10 @@ import faviconIcon from "../assets/favicon.png.ico";
 import { reportLovableError } from "../lib/lovable-error-reporting";
 import { useAuth } from "@/hooks/use-auth";
 
+/** Cream background from `src/styles.css` (`--background: oklch(0.952 0.034 84)`),
+ * resolved to hex so the manifest and meta tags stay widely supported. */
+const THEME_COLOR = "#FAEED6";
+
 function NotFoundComponent() {
   const { user, loading } = useAuth();
   const navigate = useNavigate();
@@ -99,10 +103,15 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
       { property: "og:description", content: "نظام إدارة الخدمة والمخدومين" },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary" },
+      // PWA
+      { name: "theme-color", content: THEME_COLOR },
+      { name: "mobile-web-app-capable", content: "yes" },
     ],
     links: [
       { rel: "stylesheet", href: appCss },
       { rel: "icon", type: "image/x-icon", href: faviconIcon },
+      { rel: "manifest", href: "/manifest.webmanifest" },
+      { rel: "apple-touch-icon", href: "/icons/apple-touch-icon.png" },
     ],
   }),
   shellComponent: RootShell,
@@ -127,6 +136,32 @@ function RootShell({ children }: { children: ReactNode }) {
 
 function RootComponent() {
   const { queryClient } = Route.useRouteContext();
+
+  useEffect(() => {
+    // PWA service worker: client-only (effects never run during SSR), production
+    // only, and never inside an iframe — the Lovable preview embeds the app in
+    // one, where registration is blocked and only produces console noise.
+    if (!import.meta.env.PROD) return;
+    if (typeof navigator === "undefined" || !("serviceWorker" in navigator)) return;
+
+    try {
+      if (window.self !== window.top) return;
+    } catch {
+      return; // cross-origin access to window.top threw, so we are framed
+    }
+
+    const register = () => {
+      navigator.serviceWorker.register("/sw.js", { scope: "/" }).catch(() => {
+        // Registration failures must never break the app.
+      });
+    };
+
+    if (document.readyState === "complete") {
+      register();
+    } else {
+      window.addEventListener("load", register, { once: true });
+    }
+  }, []);
 
   return (
     <QueryClientProvider client={queryClient}>

@@ -1,0 +1,1 @@
+import{c as e}from"./dist-C0vV_PPn.js";var t=`/assets/church-logo-DNDXAcDI.png`,n=e();function r({size:e=96,className:r=``}){return(0,n.jsx)(`img`,{src:t,alt:`كنيسة القديس مارمرقس والبابا أثناسيوس`,width:e,height:e,className:r,style:{width:e,height:e,objectFit:`contain`}})}export{r as t};

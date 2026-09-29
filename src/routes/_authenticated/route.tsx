@@ -62,14 +62,15 @@ function AuthedLayout() {
   return (
     <div className="min-h-screen">
       <header className="border-b border-border/60 bg-paper/80 backdrop-blur sticky top-0 z-30">
-        <div className="mx-auto max-w-7xl px-4 md:px-6 py-3 flex items-center gap-3">
-          <Link to="/" className="flex items-center gap-3 flex-shrink-0">
+        <div className="mx-auto max-w-7xl px-4 md:px-6 py-2.5 sm:py-3 flex items-center gap-2 sm:gap-3">
+          <Link to="/" className="flex items-center gap-2 sm:gap-3 min-w-0 flex-1 lg:flex-none">
+            <ChurchLogo size={40} className="sm:hidden" />
             <ChurchLogo size={48} className="hidden sm:block" />
-            <div className="whitespace-nowrap">
-              <h1 className="display text-base md:text-lg leading-tight text-ink">
+            <div className="min-w-0">
+              <h1 className="display text-sm sm:text-base md:text-lg leading-tight text-ink truncate lg:overflow-visible lg:whitespace-normal">
                 كنيسة القديس مارمرقس والبابا أثناسيوس
               </h1>
-              <p className="text-[11px] text-muted-foreground hidden sm:block">
+              <p className="text-[11px] text-muted-foreground hidden sm:block truncate">
                 نظام إدارة الخدمة والمخدومين
               </p>
             </div>
@@ -169,8 +170,9 @@ function AuthedLayout() {
           {/* Mobile menu toggle */}
           <button
             onClick={() => setMobileOpen(!mobileOpen)}
-            className="lg:hidden rounded-full bg-primary/10 hover:bg-primary/20 text-primary p-2 transition"
+            className="lg:hidden shrink-0 flex items-center justify-center min-h-11 min-w-11 rounded-full bg-primary/10 hover:bg-primary/20 text-primary transition"
             aria-label="القائمة"
+            aria-expanded={mobileOpen}
           >
             {mobileOpen ? <X size={20} /> : <Menu size={20} />}
           </button>
@@ -178,12 +180,14 @@ function AuthedLayout() {
           {/* User profile + logout */}
           <div className="flex items-center gap-3 flex-shrink-0">
             <div className="text-start leading-tight hidden sm:block">
-              <div className="text-xs text-muted-foreground">{user?.email}</div>
+              <div className="text-xs text-muted-foreground truncate max-w-[10rem]">
+                {user?.email}
+              </div>
               <div className="text-[11px] font-semibold text-primary">{roleLabel}</div>
             </div>
             <button
               onClick={signOut}
-              className="rounded-full bg-primary/10 hover:bg-primary/20 text-primary p-2 transition"
+              className="shrink-0 flex items-center justify-center min-h-11 min-w-11 rounded-full bg-primary/10 hover:bg-primary/20 text-primary transition"
               aria-label="تسجيل الخروج"
             >
               <LogOut size={18} />
@@ -193,7 +197,7 @@ function AuthedLayout() {
 
         {/* Mobile nav dropdown — all items visible to all roles */}
         {mobileOpen && (
-          <nav className="lg:hidden border-t border-border/40 bg-paper/95 backdrop-blur px-4 py-4 space-y-1">
+          <nav className="lg:hidden border-t border-border/40 bg-paper/95 backdrop-blur px-4 py-4 space-y-1 max-h-[80dvh] overflow-y-auto overscroll-contain">
             <MobileNavLink
               to="/"
               icon={<LayoutDashboard size={18} />}
@@ -256,6 +260,21 @@ function AuthedLayout() {
                 onClick={() => setMobileOpen(false)}
               />
             </>
+
+            {/* Signed-in user + sign out, repeated in the panel for phones */}
+            <div className="border-t border-border/40 mt-3 pt-3 flex items-center gap-3">
+              <div className="min-w-0 flex-1 px-3">
+                <div className="text-xs text-muted-foreground break-all">{user?.email}</div>
+                <div className="text-[11px] font-semibold text-primary">{roleLabel}</div>
+              </div>
+              <button
+                onClick={signOut}
+                className="shrink-0 flex items-center justify-center gap-2 min-h-11 px-4 rounded-full bg-primary/10 hover:bg-primary/20 text-primary font-semibold text-sm transition"
+                aria-label="تسجيل الخروج"
+              >
+                <LogOut size={18} /> تسجيل الخروج
+              </button>
+            </div>
           </nav>
         )}
       </header>
@@ -271,7 +290,11 @@ function isRouteForbidden(role: string | null, to: string): boolean {
   if (!role || role === "SUPER_ADMIN" || role === "ADMIN") return false;
   if (to === "/") return false;
   const FS: string[] = ["ST_MATTHEW", "ST_MARK", "ST_JOHN", "ST_LUKE", "ST_HIDDEN_FAMILIES"];
-  const WH: string[] = ["SUPPLY_WAREHOUSE_MANAGER", "FURNITURE_WAREHOUSE_MANAGER", "PHARMACY_WAREHOUSE_MANAGER"];
+  const WH: string[] = [
+    "SUPPLY_WAREHOUSE_MANAGER",
+    "FURNITURE_WAREHOUSE_MANAGER",
+    "PHARMACY_WAREHOUSE_MANAGER",
+  ];
   if (FS.includes(role)) return ["/inventory", "/audit"].includes(to);
   if (role === "BRIDE_AND_MEDICAL_AIDS_MANAGER") return to !== "/search";
   if (role === "BLESSING_DISTRIBUTOR") return to !== "/blessing-distribution";
@@ -327,7 +350,7 @@ function MobileNavLink({
     <Link
       to={to}
       onClick={handleClick}
-      className="flex items-center gap-3 px-3 py-3 rounded-xl text-foreground/80 hover:bg-primary/10 hover:text-primary transition font-semibold"
+      className="flex items-center gap-3 min-h-11 px-3 py-3 rounded-xl text-foreground/80 hover:bg-primary/10 hover:text-primary transition font-semibold"
       activeProps={{ className: "!bg-primary !text-primary-foreground" }}
       activeOptions={{ exact: to === "/" }}
     >
