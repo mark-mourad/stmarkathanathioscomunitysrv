@@ -21,28 +21,6 @@ var headers = ((m) => function headersRouteRule(event) {
 var findRouteRules = /* @__PURE__ */ (() => {
 	const $0 = [{
 		name: "headers",
-		route: "/manifest.webmanifest",
-		handler: headers,
-		options: {
-			"content-type": "application/manifest+json; charset=utf-8",
-			"cache-control": "public, max-age=0, must-revalidate"
-		}
-	}], $1 = [{
-		name: "headers",
-		route: "/sw.js",
-		handler: headers,
-		options: {
-			"content-type": "text/javascript; charset=utf-8",
-			"cache-control": "public, max-age=0, must-revalidate",
-			"service-worker-allowed": "/"
-		}
-	}], $2 = [{
-		name: "headers",
-		route: "/icons/**",
-		handler: headers,
-		options: { "cache-control": "public, max-age=31536000, immutable" }
-	}], $3 = [{
-		name: "headers",
 		route: "/assets/**",
 		handler: headers,
 		options: { "cache-control": "public, max-age=31536000, immutable" }
@@ -50,16 +28,10 @@ var findRouteRules = /* @__PURE__ */ (() => {
 	return (m, p) => {
 		let r = [];
 		if (p.charCodeAt(p.length - 1) === 47) p = p.slice(0, -1) || "/";
-		if (p === "/manifest.webmanifest") r.unshift({ data: $0 });
-		else if (p === "/sw.js") r.unshift({ data: $1 });
 		let s = p.split("/");
 		if (s.length > 1) {
-			if (s[1] === "icons") r.unshift({
-				data: $2,
-				params: { "_": s.slice(2).join("/") }
-			});
-			else if (s[1] === "assets") r.unshift({
-				data: $3,
+			if (s[1] === "assets") r.unshift({
+				data: $0,
 				params: { "_": s.slice(2).join("/") }
 			});
 		}

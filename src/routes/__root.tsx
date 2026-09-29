@@ -141,6 +141,7 @@ function RootComponent() {
     // PWA service worker: client-only (effects never run during SSR), production
     // only, and never inside an iframe — the Lovable preview embeds the app in
     // one, where registration is blocked and only produces console noise.
+    if (typeof window === "undefined") return;
     if (!import.meta.env.PROD) return;
     if (typeof navigator === "undefined" || !("serviceWorker" in navigator)) return;
 

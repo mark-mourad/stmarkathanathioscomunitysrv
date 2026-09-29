@@ -8,26 +8,12 @@ export default defineConfig({
   },
   nitro: {
     preset: "vercel",
-    routeRules: {
-      // PWA: the manifest needs `application/manifest+json` and the service
-      // worker must never be served from a long-lived cache, otherwise clients
-      // keep running a stale worker after a deploy.
-      "/manifest.webmanifest": {
-        headers: {
-          "content-type": "application/manifest+json; charset=utf-8",
-          "cache-control": "public, max-age=0, must-revalidate",
-        },
-      },
-      "/sw.js": {
-        headers: {
-          "content-type": "text/javascript; charset=utf-8",
-          "cache-control": "public, max-age=0, must-revalidate",
-          "service-worker-allowed": "/",
-        },
-      },
-      "/icons/**": {
-        headers: { "cache-control": "public, max-age=31536000, immutable" },
-      },
-    },
+    // No `routeRules` here on purpose. Nitro's Vercel preset turns every
+    // routeRule that carries `headers` into a Build Output API v3 route with
+    // no `continue` flag, and Vercel treats such a route as terminal: the
+    // request is answered with the headers and an empty body, which surfaced
+    // as "Server-Side Runtime Error (HTTP 500)" and broke the SSR routes.
+    // The PWA assets are plain files in `public/`, so they are served by the
+    // `filesystem` handle with the right content type and no extra rules.
   },
 });

@@ -9,7 +9,7 @@ import { n as QueryClient } from "../_libs/tanstack__query-core.mjs";
 import { r as QueryClientProvider } from "../_libs/tanstack__react-query.mjs";
 import { t as Route$11 } from "./individual._id-N8zfhcgZ.mjs";
 import { t as Route$12 } from "./search-CJPB1n1Y.mjs";
-//#region node_modules/.nitro/vite/services/ssr/assets/router-CMuAsffW.js
+//#region node_modules/.nitro/vite/services/ssr/assets/router-uBMR_HOJ.js
 var import_react = /* @__PURE__ */ __toESM(require_react());
 var import_jsx_runtime = require_jsx_runtime();
 var styles_default = "/assets/styles-3POIF3iR.css";
@@ -180,6 +180,7 @@ function RootShell({ children }) {
 function RootComponent() {
 	const { queryClient } = Route$10.useRouteContext();
 	(0, import_react.useEffect)(() => {
+		if (typeof window === "undefined") return;
 		if (typeof navigator === "undefined" || !("serviceWorker" in navigator)) return;
 		try {
 			if (window.self !== window.top) return;

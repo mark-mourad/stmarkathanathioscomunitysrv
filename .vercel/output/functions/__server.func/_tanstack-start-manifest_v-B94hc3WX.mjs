@@ -1,10 +1,10 @@
-//#region node_modules/.nitro/vite/services/ssr/assets/_tanstack-start-manifest_v-YgKG4rql.js
+//#region node_modules/.nitro/vite/services/ssr/assets/_tanstack-start-manifest_v-B94hc3WX.js
 var tsrStartManifest = () => ({ routes: {
 	__root__: {
 		filePath: "C:/Users/mark/Documents/GitHub/stmarkathanathioscomunitysrv/src/routes/__root.tsx",
 		children: ["/_authenticated", "/auth"],
 		preloads: [
-			"/assets/index-C4Binf49.js",
+			"/assets/index-CFPLRroj.js",
 			"/assets/dist-C0vV_PPn.js",
 			"/assets/link-ODshrb20.js",
 			"/assets/use-auth-BT6YwMwj.js",
@@ -13,7 +13,7 @@ var tsrStartManifest = () => ({ routes: {
 		scripts: [{ attrs: {
 			type: "module",
 			async: !0,
-			src: "/assets/index-C4Binf49.js"
+			src: "/assets/index-CFPLRroj.js"
 		} }]
 	},
 	"/_authenticated": {
@@ -31,7 +31,7 @@ var tsrStartManifest = () => ({ routes: {
 			"/_authenticated/individual/$id"
 		],
 		preloads: [
-			"/assets/route-Cg1LGDB5.js",
+			"/assets/route-Dis5JHi0.js",
 			"/assets/createLucideIcon-CphmUwQN.js",
 			"/assets/user-plus-DH_4skuR.js",
 			"/assets/check-DcNkMquW.js",
@@ -54,17 +54,17 @@ var tsrStartManifest = () => ({ routes: {
 		filePath: "C:/Users/mark/Documents/GitHub/stmarkathanathioscomunitysrv/src/routes/_authenticated/add.tsx",
 		children: void 0,
 		preloads: [
-			"/assets/add-CyQmk9po.js",
-			"/assets/church.functions-BTkL2dMq.js",
-			"/assets/individual-form-DRZhU452.js"
+			"/assets/add-DqzxxEb-.js",
+			"/assets/church.functions-CLDvNK30.js",
+			"/assets/individual-form-DJcmzoHT.js"
 		]
 	},
 	"/_authenticated/audit": {
 		filePath: "C:/Users/mark/Documents/GitHub/stmarkathanathioscomunitysrv/src/routes/_authenticated/audit.tsx",
 		children: void 0,
 		preloads: [
-			"/assets/audit-DQo2dLU0.js",
-			"/assets/church.functions-BTkL2dMq.js",
+			"/assets/audit-DoQwp-ax.js",
+			"/assets/church.functions-CLDvNK30.js",
 			"/assets/trash-2-COE-cijI.js"
 		]
 	},
@@ -72,17 +72,17 @@ var tsrStartManifest = () => ({ routes: {
 		filePath: "C:/Users/mark/Documents/GitHub/stmarkathanathioscomunitysrv/src/routes/_authenticated/blessing-distribution.tsx",
 		children: void 0,
 		preloads: [
-			"/assets/blessing-distribution-4z_4W_RX.js",
-			"/assets/church.functions-BTkL2dMq.js",
-			"/assets/useMutation-C7Mt4nKl.js"
+			"/assets/blessing-distribution-CrG8Mesu.js",
+			"/assets/church.functions-CLDvNK30.js",
+			"/assets/useMutation-NhWNa06j.js"
 		]
 	},
 	"/_authenticated/clothes": {
 		filePath: "C:/Users/mark/Documents/GitHub/stmarkathanathioscomunitysrv/src/routes/_authenticated/clothes.tsx",
 		children: void 0,
 		preloads: [
-			"/assets/clothes-Cq99XulE.js",
-			"/assets/church.functions-BTkL2dMq.js",
+			"/assets/clothes-UIgFEQOA.js",
+			"/assets/church.functions-CLDvNK30.js",
 			"/assets/pencil-Czv_QH63.js",
 			"/assets/plus-BpdwbTw7.js",
 			"/assets/trash-2-COE-cijI.js",
@@ -93,8 +93,8 @@ var tsrStartManifest = () => ({ routes: {
 		filePath: "C:/Users/mark/Documents/GitHub/stmarkathanathioscomunitysrv/src/routes/_authenticated/furniture.tsx",
 		children: void 0,
 		preloads: [
-			"/assets/furniture-BFB75Gfh.js",
-			"/assets/church.functions-BTkL2dMq.js",
+			"/assets/furniture-CpWgxPSh.js",
+			"/assets/church.functions-CLDvNK30.js",
 			"/assets/clipboard-list-BzOICSD8.js",
 			"/assets/pencil-Czv_QH63.js",
 			"/assets/plus-BpdwbTw7.js",
@@ -106,9 +106,9 @@ var tsrStartManifest = () => ({ routes: {
 		filePath: "C:/Users/mark/Documents/GitHub/stmarkathanathioscomunitysrv/src/routes/_authenticated/inventory.tsx",
 		children: void 0,
 		preloads: [
-			"/assets/inventory-Bo8Uw_Sd.js",
-			"/assets/church.functions-BTkL2dMq.js",
-			"/assets/useMutation-C7Mt4nKl.js",
+			"/assets/inventory-C-fUoRVB.js",
+			"/assets/church.functions-CLDvNK30.js",
+			"/assets/useMutation-NhWNa06j.js",
 			"/assets/pencil-Czv_QH63.js",
 			"/assets/plus-BpdwbTw7.js",
 			"/assets/trash-2-COE-cijI.js",
@@ -119,8 +119,8 @@ var tsrStartManifest = () => ({ routes: {
 		filePath: "C:/Users/mark/Documents/GitHub/stmarkathanathioscomunitysrv/src/routes/_authenticated/pharmacy.tsx",
 		children: void 0,
 		preloads: [
-			"/assets/pharmacy-DkzE9QfU.js",
-			"/assets/church.functions-BTkL2dMq.js",
+			"/assets/pharmacy-BBGC_R_f.js",
+			"/assets/church.functions-CLDvNK30.js",
 			"/assets/clipboard-list-BzOICSD8.js",
 			"/assets/pencil-Czv_QH63.js",
 			"/assets/plus-BpdwbTw7.js",
@@ -132,8 +132,8 @@ var tsrStartManifest = () => ({ routes: {
 		filePath: "C:/Users/mark/Documents/GitHub/stmarkathanathioscomunitysrv/src/routes/_authenticated/search.tsx",
 		children: void 0,
 		preloads: [
-			"/assets/search-Jp105iNu.js",
-			"/assets/church.functions-BTkL2dMq.js",
+			"/assets/search-BU03EIh6.js",
+			"/assets/church.functions-CLDvNK30.js",
 			"/assets/download-ZNZavGFc.js"
 		]
 	},
@@ -141,8 +141,8 @@ var tsrStartManifest = () => ({ routes: {
 		filePath: "C:/Users/mark/Documents/GitHub/stmarkathanathioscomunitysrv/src/routes/_authenticated/index.tsx",
 		children: void 0,
 		preloads: [
-			"/assets/_authenticated-CC-cufz9.js",
-			"/assets/church.functions-BTkL2dMq.js",
+			"/assets/_authenticated-DGbQYO2v.js",
+			"/assets/church.functions-CLDvNK30.js",
 			"/assets/pencil-Czv_QH63.js",
 			"/assets/stethoscope-D-99W2Iy.js",
 			"/assets/clsx-CjueKrWZ.js"
@@ -152,14 +152,14 @@ var tsrStartManifest = () => ({ routes: {
 		filePath: "C:/Users/mark/Documents/GitHub/stmarkathanathioscomunitysrv/src/routes/_authenticated/individual.$id.tsx",
 		children: void 0,
 		preloads: [
-			"/assets/individual._id-CGZGV830.js",
-			"/assets/church.functions-BTkL2dMq.js",
+			"/assets/individual._id-DWc2wMgy.js",
+			"/assets/church.functions-CLDvNK30.js",
 			"/assets/download-ZNZavGFc.js",
 			"/assets/pencil-Czv_QH63.js",
 			"/assets/plus-BpdwbTw7.js",
 			"/assets/stethoscope-D-99W2Iy.js",
 			"/assets/trash-2-COE-cijI.js",
-			"/assets/individual-form-DRZhU452.js",
+			"/assets/individual-form-DJcmzoHT.js",
 			"/assets/alert-dialog-DJK_UMrA.js"
 		]
 	}
