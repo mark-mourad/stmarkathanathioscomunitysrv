@@ -37,7 +37,7 @@ export async function seedIndividual(name: string, nationalId: string) {
     full_name: name,
     national_id: nationalId,
     address: 'اختبار Playwright',
-    phone: '01000000000',
+    wife_mobile: '01000000000',
     created_by: undefined,
   }).select('id').single();
 

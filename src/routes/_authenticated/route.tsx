@@ -60,7 +60,7 @@ function AuthedLayout() {
   };
 
   return (
-    <div className="min-h-screen">
+    <div className="min-h-screen w-full max-w-full overflow-x-clip">
       <header className="border-b border-border/60 bg-paper/80 backdrop-blur sticky top-0 z-30">
         <div className="mx-auto max-w-7xl px-4 md:px-6 py-2.5 sm:py-3 flex items-center gap-2 sm:gap-3">
           <Link to="/" className="flex items-center gap-2 sm:gap-3 min-w-0 flex-1 lg:flex-none">
@@ -279,7 +279,7 @@ function AuthedLayout() {
         )}
       </header>
 
-      <main className="mx-auto max-w-7xl px-4 md:px-6 py-6 md:py-8">
+      <main className="mx-auto w-full max-w-7xl overflow-x-hidden px-4 md:px-6 py-6 md:py-8">
         <Outlet />
       </main>
     </div>

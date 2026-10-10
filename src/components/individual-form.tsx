@@ -177,24 +177,160 @@ export const APPLIANCES = [
   { k: "has_wardrobe", l: "دولاب" },
 ] as const;
 
+export type HouseholdGood = {
+  item_name: string;
+  exists: boolean;
+  quantity: number;
+};
+
+export const DEFAULT_GOOD_NAMES: readonly string[] = APPLIANCES.map((a) => a.l);
+
+// Build the editable household-goods list from stored data, falling back to the
+// legacy `has_*` boolean columns for records saved before the JSONB migration.
+export function buildInitialGoods(ind: Record<string, unknown>): HouseholdGood[] {
+  const raw = ind?.household_goods;
+  const stored: unknown[] = Array.isArray(raw) ? raw : [];
+  const byName = new Map<string, HouseholdGood>();
+  stored.forEach((entry) => {
+    const g = (entry ?? {}) as Record<string, unknown>;
+    const name = String(g.item_name ?? "").trim();
+    if (name) {
+      byName.set(name, {
+        item_name: name,
+        exists: !!g.exists,
+        quantity: Number(g.quantity) || 0,
+      });
+    }
+  });
+  const defaults: HouseholdGood[] = APPLIANCES.map((a) => {
+    const existing = byName.get(a.l);
+    if (existing) {
+      byName.delete(a.l);
+      return existing;
+    }
+    const legacy = !!ind?.[a.k];
+    return { item_name: a.l, exists: legacy, quantity: legacy ? 1 : 0 };
+  });
+  return [...defaults, ...Array.from(byName.values())];
+}
+
+export function cleanHouseholdGoods(items: unknown): HouseholdGood[] {
+  if (!Array.isArray(items)) return [];
+  return items
+    .map((entry) => {
+      const g = (entry ?? {}) as Record<string, unknown>;
+      return {
+        item_name: String(g.item_name ?? "").trim(),
+        exists: !!g.exists,
+        quantity: Number(g.quantity) || 0,
+      };
+    })
+    .filter((g) => g.item_name.length);
+}
+
+export const CONDITION_CATEGORIES = [
+  { value: "diseases", label: "أمراض" },
+  { value: "disabilities", label: "إعاقة" },
+  { value: "other", label: "ظروف أخرى" },
+] as const;
+
+export type FamilyCondition = {
+  member_name: string;
+  category: string;
+  title: string;
+  notes: string;
+};
+
+export function buildInitialConditions(ind: Record<string, unknown>): FamilyCondition[] {
+  const raw = ind?.family_conditions;
+  if (!Array.isArray(raw)) return [];
+  return raw.map((entry) => {
+    const c = (entry ?? {}) as Record<string, unknown>;
+    return {
+      member_name: String(c.member_name ?? "").trim(),
+      category: String(c.category ?? "").trim(),
+      title: String(c.title ?? "").trim(),
+      notes: String(c.notes ?? "").trim(),
+    };
+  });
+}
+
+export function cleanFamilyConditions(items: unknown): FamilyCondition[] {
+  if (!Array.isArray(items)) return [];
+  return items
+    .map((entry) => {
+      const c = (entry ?? {}) as Record<string, unknown>;
+      return {
+        member_name: String(c.member_name ?? "").trim(),
+        category: String(c.category ?? "").trim(),
+        title: String(c.title ?? "").trim(),
+        notes: String(c.notes ?? "").trim(),
+      };
+    })
+    .filter((c) => c.member_name || c.title || c.notes);
+}
+
 export type ChurchSupportRow = {
   id?: string;
   church_name: string;
   amount: number;
 };
 
+export type CustomFinancialRow = {
+  name: string;
+  amount: number;
+};
+
+export const STANDARD_REVENUE_KEYS = [
+  "church_monthly",
+  "basic_salary",
+  "extra_income",
+  "therapeutic_aid",
+  "study_aid",
+] as const;
+
+export const STANDARD_EXPENSE_KEYS = [
+  "electricity_gas_water",
+  "phone_bill",
+  "rent",
+  "treatment_cost",
+  "education_cost",
+] as const;
+
+// Normalize a stored JSONB array of { name, amount } rows into editable rows.
+export function buildInitialCustomFinancials(value: unknown): CustomFinancialRow[] {
+  if (!Array.isArray(value)) return [];
+  return value.map((entry) => {
+    const r = (entry ?? {}) as Record<string, unknown>;
+    return {
+      name: String(r.name ?? "").trim(),
+      amount: Number(r.amount) || 0,
+    };
+  });
+}
+
+export function cleanCustomFinancials(value: unknown): CustomFinancialRow[] {
+  return buildInitialCustomFinancials(value).filter((r) => r.name.length);
+}
+
 export type IndividualFormData = {
   ind: Record<string, any>;
   family: FamilyRow[];
   fin: Record<string, number>;
+  financialNotes?: string;
   churchSupport: ChurchSupportRow[];
+  customRevenues: CustomFinancialRow[];
+  customExpenses: CustomFinancialRow[];
 };
 
 type Props = {
   initialInd?: Record<string, any>;
   initialFamily?: FamilyRow[];
   initialFin?: Record<string, number>;
+  initialFinancialNotes?: string;
   initialChurchSupport?: ChurchSupportRow[];
+  initialCustomRevenues?: CustomFinancialRow[];
+  initialCustomExpenses?: CustomFinancialRow[];
   submitLabel: string;
   busy?: boolean;
   onSubmit: (data: IndividualFormData) => void | Promise<void>;
@@ -207,7 +343,10 @@ export function IndividualForm({
   initialInd = {},
   initialFamily = [{ full_name: "" }],
   initialFin = {},
+  initialFinancialNotes = "",
   initialChurchSupport = [],
+  initialCustomRevenues = [],
+  initialCustomExpenses = [],
   submitLabel,
   busy = false,
   onSubmit,
@@ -215,10 +354,17 @@ export function IndividualForm({
   lockFamily = false,
   role = null,
 }: Props) {
-  const [ind, setInd] = useState<Record<string, any>>(initialInd);
+  const [ind, setInd] = useState<Record<string, any>>(() => ({
+    ...initialInd,
+    household_goods: buildInitialGoods(initialInd),
+    family_conditions: buildInitialConditions(initialInd),
+  }));
   const [family, setFamily] = useState<FamilyRow[]>(initialFamily);
   const [fin, setFin] = useState<Record<string, number>>(initialFin);
+  const [financialNotes, setFinancialNotes] = useState<string>(initialFinancialNotes);
   const [churchSupport, setChurchSupport] = useState<ChurchSupportRow[]>(initialChurchSupport);
+  const [customRevenues, setCustomRevenues] = useState<CustomFinancialRow[]>(initialCustomRevenues);
+  const [customExpenses, setCustomExpenses] = useState<CustomFinancialRow[]>(initialCustomExpenses);
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
   const visibleFamilyValues = useMemo(
     () => (role ? getVisibleSaintFamilyValues(role) : SAINT_FAMILIES.map((f) => f.value)),
@@ -269,6 +415,74 @@ export function IndividualForm({
     });
   }
 
+  function updateGood(index: number, patch: Partial<HouseholdGood>) {
+    setInd((s) => {
+      const goods: HouseholdGood[] = Array.isArray(s.household_goods) ? s.household_goods : [];
+      const next = goods.map((g, i) => (i === index ? { ...g, ...patch } : g));
+      return { ...s, household_goods: next };
+    });
+  }
+
+  function addGood() {
+    setInd((s) => {
+      const goods: HouseholdGood[] = Array.isArray(s.household_goods) ? s.household_goods : [];
+      return {
+        ...s,
+        household_goods: [...goods, { item_name: "", exists: true, quantity: 1 }],
+      };
+    });
+  }
+
+  function removeGood(index: number) {
+    setInd((s) => {
+      const goods: HouseholdGood[] = Array.isArray(s.household_goods) ? s.household_goods : [];
+      return { ...s, household_goods: goods.filter((_, i) => i !== index) };
+    });
+  }
+
+  function updateCondition(index: number, patch: Partial<FamilyCondition>) {
+    setInd((s) => {
+      const list: FamilyCondition[] = Array.isArray(s.family_conditions) ? s.family_conditions : [];
+      return { ...s, family_conditions: list.map((c, i) => (i === index ? { ...c, ...patch } : c)) };
+    });
+  }
+
+  function addCondition() {
+    setInd((s) => {
+      const list: FamilyCondition[] = Array.isArray(s.family_conditions) ? s.family_conditions : [];
+      return {
+        ...s,
+        family_conditions: [...list, { member_name: "", category: "", title: "", notes: "" }],
+      };
+    });
+  }
+
+  function removeCondition(index: number) {
+    setInd((s) => {
+      const list: FamilyCondition[] = Array.isArray(s.family_conditions) ? s.family_conditions : [];
+      return { ...s, family_conditions: list.filter((_, i) => i !== index) };
+    });
+  }
+
+  function updateCustomRow(
+    kind: "revenue" | "expense",
+    index: number,
+    patch: Partial<CustomFinancialRow>,
+  ) {
+    const setter = kind === "revenue" ? setCustomRevenues : setCustomExpenses;
+    setter((s) => s.map((r, i) => (i === index ? { ...r, ...patch } : r)));
+  }
+
+  function addCustomRow(kind: "revenue" | "expense") {
+    const setter = kind === "revenue" ? setCustomRevenues : setCustomExpenses;
+    setter((s) => [...s, { name: "", amount: 0 }]);
+  }
+
+  function removeCustomRow(kind: "revenue" | "expense", index: number) {
+    const setter = kind === "revenue" ? setCustomRevenues : setCustomExpenses;
+    setter((s) => s.filter((_, i) => i !== index));
+  }
+
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     
@@ -289,8 +503,35 @@ export function IndividualForm({
       return;
     }
     
-    await onSubmit({ ind: { ...ind, gender }, family, fin, churchSupport });
+    await onSubmit({ ind: { ...ind, gender }, family, fin, financialNotes, churchSupport, customRevenues, customExpenses });
   }
+
+  const familyConditions: FamilyCondition[] = Array.isArray(ind.family_conditions)
+    ? (ind.family_conditions as FamilyCondition[])
+    : [];
+
+  const memberOptions = Array.from(
+    new Set(
+      [
+        ...(ind.full_name ? [String(ind.full_name).trim()] : []),
+        ...family.map((f) => String(f.full_name ?? "").trim()),
+      ].filter(Boolean),
+    ),
+  );
+
+  const totalIncome = useMemo(
+    () =>
+      STANDARD_REVENUE_KEYS.reduce((s, k) => s + Number(fin[k] || 0), 0) +
+      customRevenues.reduce((s, r) => s + Number(r.amount || 0), 0),
+    [fin, customRevenues],
+  );
+  const totalExpenses = useMemo(
+    () =>
+      STANDARD_EXPENSE_KEYS.reduce((s, k) => s + Number(fin[k] || 0), 0) +
+      customExpenses.reduce((s, r) => s + Number(r.amount || 0), 0),
+    [fin, customExpenses],
+  );
+  const netIncome = totalIncome - totalExpenses;
 
   return (
     <form onSubmit={handleSubmit} className="space-y-6">
@@ -337,10 +578,10 @@ export function IndividualForm({
             value={ind.calculated_age != null ? String(ind.calculated_age) : (ind.birth_date ? String(calculateAgeFromBirthDate(ind.birth_date) ?? "") : "")}
             readOnly
           />
-          <TInput label="الوظيفة" value={ind.job ?? ""} onChange={(v) => set("job", v)} />
-          <TInput label="الراتب" type="number" value={ind.salary ?? ""} onChange={(v) => set("salary", v)} />
-          <TInput label="رقم الموبايل" value={ind.phone ?? ""} onChange={(v) => set("phone", v)} />
-          <TInput label="رقم موبايل آخر" value={ind.mobile ?? ""} onChange={(v) => set("mobile", v)} />
+          <TInput label="وظيفة الزوج" value={ind.job ?? ""} onChange={(v) => set("job", v)} />
+          <TInput label="وظيفة الزوجة" value={ind.salary ?? ""} onChange={(v) => set("salary", v)} />
+          <TInput label="رقم موبايل الزوجة" value={ind.wife_mobile ?? ""} onChange={(v) => set("wife_mobile", v)} />
+          <TInput label="رقم موبايل الزوج" value={ind.husband_mobile ?? ""} onChange={(v) => set("husband_mobile", v)} />
           <TInput label="تلفون أرضي" value={ind.landline ?? ""} onChange={(v) => set("landline", v)} />
           <TInput label="أب الاعتراف" value={ind.confession_father ?? ""} onChange={(v) => set("confession_father", v)} />
           <TSelect
@@ -407,22 +648,149 @@ export function IndividualForm({
           )}
         </div>
 
-        <h3 className="display text-sm mt-6 mb-2 text-muted-foreground">المنقولات المنزلية</h3>
-        <div className="grid grid-cols-3 md:grid-cols-5 gap-2">
-          {APPLIANCES.map((a) => (
-            <label
-              key={a.k}
-              className="flex items-center gap-2 px-3 py-2 rounded-xl bg-paper border border-border cursor-pointer hover:bg-primary/5"
-            >
-              <input
-                type="checkbox"
-                checked={!!ind[a.k]}
-                onChange={(e) => set(a.k, e.target.checked)}
-                className="accent-[color:var(--color-primary)]"
-              />
-              <span className="text-sm font-semibold">{a.l}</span>
-            </label>
-          ))}
+        {/* Family Condition Notes */}
+        <div className="mt-6 pt-4 border-t border-border">
+          <div className="flex items-center justify-between mb-3">
+            <h3 className="display text-sm text-muted-foreground">ملحوظات عن حالة الأسرة</h3>
+            <button type="button" onClick={addCondition} className="chip-green px-4 py-2 text-sm">
+              <Plus size={14} className="inline-block ms-1" /> إضافة ملاحظة
+            </button>
+          </div>
+          {familyConditions.length === 0 ? (
+            <div className="text-sm text-muted-foreground">لا توجد ملاحظات مسجلة</div>
+          ) : (
+            <div className="space-y-3">
+              {familyConditions.map((c, i) => (
+                <div key={i} className="rounded-xl bg-paper border border-border p-3">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                    <label className="block">
+                      <span className="text-sm font-semibold text-muted-foreground">الفرد</span>
+                      <input
+                        list="family-condition-members"
+                        value={c.member_name ?? ""}
+                        onChange={(e) => updateCondition(i, { member_name: e.target.value })}
+                        placeholder="اختر الفرد أو أدخل الاسم"
+                        className="mt-1 w-full rounded-xl bg-paper border border-border px-3 py-2 outline-none focus:ring-2 focus:ring-ring"
+                      />
+                    </label>
+                    <label className="block">
+                      <span className="text-sm font-semibold text-muted-foreground">النوع</span>
+                      <select
+                        value={c.category ?? ""}
+                        onChange={(e) => updateCondition(i, { category: e.target.value })}
+                        className="mt-1 w-full rounded-xl bg-paper border border-border px-3 py-2 outline-none focus:ring-2 focus:ring-ring text-sm"
+                      >
+                        <option value="">اختر النوع</option>
+                        {CONDITION_CATEGORIES.map((opt) => (
+                          <option key={opt.value} value={opt.value}>{opt.label}</option>
+                        ))}
+                      </select>
+                    </label>
+                    <label className="block md:col-span-2">
+                      <span className="text-sm font-semibold text-muted-foreground">
+                        اسم المرض / الإعاقة / الظرف
+                      </span>
+                      <input
+                        value={c.title ?? ""}
+                        onChange={(e) => updateCondition(i, { title: e.target.value })}
+                        placeholder="أدخل التفاصيل"
+                        className="mt-1 w-full rounded-xl bg-paper border border-border px-3 py-2 outline-none focus:ring-2 focus:ring-ring"
+                      />
+                    </label>
+                    <label className="block md:col-span-2">
+                      <span className="text-sm font-semibold text-muted-foreground">الملاحظات</span>
+                      <textarea
+                        value={c.notes ?? ""}
+                        onChange={(e) => updateCondition(i, { notes: e.target.value })}
+                        rows={2}
+                        placeholder="ملاحظات إضافية"
+                        className="mt-1 w-full rounded-xl bg-paper border border-border px-3 py-2 outline-none focus:ring-2 focus:ring-ring resize-y"
+                      />
+                    </label>
+                  </div>
+                  <div className="flex justify-end mt-2">
+                    <button
+                      type="button"
+                      onClick={() => removeCondition(i)}
+                      className="text-destructive hover:bg-destructive/10 p-1 px-2 rounded flex items-center gap-1 text-xs"
+                    >
+                      <Trash2 size={14} /> حذف
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+          <datalist id="family-condition-members">
+            {memberOptions.map((m) => (
+              <option key={m} value={m} />
+            ))}
+          </datalist>
+        </div>
+
+        <div className="flex items-center justify-between mt-6 mb-2">
+          <h3 className="display text-sm text-muted-foreground">المنقولات المنزلية</h3>
+          <button type="button" onClick={addGood} className="chip-green px-4 py-2 text-sm">
+            <Plus size={14} className="inline-block ms-1" /> إضافة منقولات
+          </button>
+        </div>
+        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-2">
+          {(Array.isArray(ind.household_goods) ? (ind.household_goods as HouseholdGood[]) : []).map((g, i) => {
+            const isDefault = DEFAULT_GOOD_NAMES.includes(g.item_name);
+            return (
+              <div
+                key={i}
+                className={cn(
+                  "flex items-center gap-2 px-3 py-2 rounded-xl bg-paper border border-border",
+                  g.exists && "border-primary/40 bg-primary/5",
+                )}
+              >
+                <input
+                  type="checkbox"
+                  checked={!!g.exists}
+                  onChange={(e) =>
+                    updateGood(i, {
+                      exists: e.target.checked,
+                      quantity: e.target.checked && !g.quantity ? 1 : g.quantity,
+                    })
+                  }
+                  className="accent-[color:var(--color-primary)]"
+                />
+                {isDefault ? (
+                  <span className="text-sm font-semibold flex-1">{g.item_name}</span>
+                ) : (
+                  <input
+                    value={g.item_name}
+                    onChange={(e) => updateGood(i, { item_name: e.target.value })}
+                    placeholder="اسم المنقول"
+                    className="flex-1 min-w-0 bg-transparent text-sm font-semibold outline-none border-b border-dashed border-border focus:border-primary"
+                  />
+                )}
+                <label className="flex items-center gap-1" title="العدد">
+                  <span className="text-[11px] text-muted-foreground">العدد</span>
+                  <input
+                    type="number"
+                    min={0}
+                    value={g.quantity ?? 0}
+                    onChange={(e) =>
+                      updateGood(i, { quantity: e.target.value === "" ? 0 : Number(e.target.value) })
+                    }
+                    disabled={!g.exists}
+                    className="w-16 bg-paper rounded-lg px-2 py-1 text-center outline-none focus:ring-1 focus:ring-ring disabled:opacity-40 tabular-nums"
+                  />
+                </label>
+                {!isDefault && (
+                  <button
+                    type="button"
+                    onClick={() => removeGood(i)}
+                    className="text-destructive hover:bg-destructive/10 p-1 rounded"
+                  >
+                    <Trash2 size={14} />
+                  </button>
+                )}
+              </div>
+            );
+          })}
         </div>
       </section>
 
@@ -548,25 +916,80 @@ export function IndividualForm({
         <h2 className="display text-xl mb-4 text-ink">البيانات المالية</h2>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-4">
           <div>
-            <h3 className="display text-sm text-success mb-2">الإيرادات</h3>
+            <div className="flex items-center justify-between mb-2">
+              <h3 className="display text-sm text-success">الإيرادات</h3>
+              <button
+                type="button"
+                onClick={() => addCustomRow("revenue")}
+                className="chip-green px-3 py-1.5 text-xs"
+              >
+                <Plus size={13} className="inline-block ms-1" /> إضافة إيراد آخر
+              </button>
+            </div>
             <div className="space-y-2">
               <NumRow label="شهريات كنايس" k="church_monthly" fin={fin} setFin={setFin} />
               <NumRow label="مرتب أساسي" k="basic_salary" fin={fin} setFin={setFin} />
               <NumRow label="مصدر إضافي للدخل" k="extra_income" fin={fin} setFin={setFin} />
               <NumRow label="مساعدات علاجية" k="therapeutic_aid" fin={fin} setFin={setFin} />
               <NumRow label="مساعدات خلال دراسة" k="study_aid" fin={fin} setFin={setFin} />
+              {customRevenues.map((r, i) => (
+                <DynamicFinRow
+                  key={i}
+                  row={r}
+                  namePlaceholder="اسم الإيراد"
+                  onChange={(patch) => updateCustomRow("revenue", i, patch)}
+                  onRemove={() => removeCustomRow("revenue", i)}
+                />
+              ))}
             </div>
           </div>
           <div>
-            <h3 className="display text-sm text-destructive mb-2">المصروفات</h3>
+            <div className="flex items-center justify-between mb-2">
+              <h3 className="display text-sm text-destructive">المصروفات</h3>
+              <button
+                type="button"
+                onClick={() => addCustomRow("expense")}
+                className="px-3 py-1.5 text-xs rounded-full bg-destructive/10 text-destructive font-semibold hover:bg-destructive/20 transition"
+              >
+                <Plus size={13} className="inline-block ms-1" /> إضافة مصروف
+              </button>
+            </div>
             <div className="space-y-2">
               <NumRow label="كهرباء – غاز – مياه" k="electricity_gas_water" fin={fin} setFin={setFin} />
               <NumRow label="تليفون" k="phone_bill" fin={fin} setFin={setFin} />
               <NumRow label="إيجار" k="rent" fin={fin} setFin={setFin} />
               <NumRow label="علاج" k="treatment_cost" fin={fin} setFin={setFin} />
               <NumRow label="دراسة" k="education_cost" fin={fin} setFin={setFin} />
+              {customExpenses.map((r, i) => (
+                <DynamicFinRow
+                  key={i}
+                  row={r}
+                  namePlaceholder="وصف المصروف"
+                  onChange={(patch) => updateCustomRow("expense", i, patch)}
+                  onRemove={() => removeCustomRow("expense", i)}
+                />
+              ))}
             </div>
           </div>
+        </div>
+
+        <div className="mt-5 pt-4 border-t border-border grid grid-cols-1 sm:grid-cols-3 gap-3">
+          <SummaryStat label="إجمالي الإيرادات" v={totalIncome} tone="success" />
+          <SummaryStat label="إجمالي المصروفات" v={totalExpenses} tone="destructive" />
+          <SummaryStat label="صافي الدخل" v={netIncome} tone={netIncome < 0 ? "destructive" : "neutral"} />
+        </div>
+
+        <div className="mt-5 pt-4 border-t border-border">
+          <label className="block">
+            <span className="text-sm font-semibold text-muted-foreground">ملاحظات مالية</span>
+            <textarea
+              value={financialNotes}
+              onChange={(e) => setFinancialNotes(e.target.value)}
+              rows={3}
+              placeholder="اكتب ملخصات أو آراء أو ملاحظات حول الحالة المالية للمخدوم"
+              className="mt-1 w-full rounded-xl bg-paper border border-border px-3 py-2 outline-none focus:ring-2 focus:ring-ring resize-y"
+            />
+          </label>
         </div>
       </section>
 
@@ -805,9 +1228,64 @@ function NumRow({
   );
 }
 
-export function buildIndividualPayload({ ind, family, fin, churchSupport }: IndividualFormData) {
+function DynamicFinRow({
+  row, namePlaceholder, onChange, onRemove,
+}: {
+  row: CustomFinancialRow;
+  namePlaceholder: string;
+  onChange: (patch: Partial<CustomFinancialRow>) => void;
+  onRemove: () => void;
+}) {
+  return (
+    <div className="flex items-center gap-2 bg-paper border border-border rounded-xl px-3 py-2">
+      <input
+        value={row.name}
+        onChange={(e) => onChange({ name: e.target.value })}
+        placeholder={namePlaceholder}
+        className="flex-1 min-w-0 bg-transparent text-sm font-semibold outline-none border-b border-dashed border-border focus:border-primary"
+      />
+      <input
+        type="number"
+        value={row.amount ?? ""}
+        onChange={(e) => onChange({ amount: e.target.value === "" ? 0 : Number(e.target.value) })}
+        className="w-28 bg-transparent text-end outline-none tabular-nums"
+        placeholder="0"
+      />
+      <button
+        type="button"
+        onClick={onRemove}
+        className="text-destructive hover:bg-destructive/10 p-1 rounded"
+      >
+        <Trash2 size={14} />
+      </button>
+    </div>
+  );
+}
+
+function SummaryStat({
+  label, v, tone,
+}: { label: string; v: number; tone: "success" | "destructive" | "neutral" }) {
+  const toneClass =
+    tone === "success"
+      ? "text-success"
+      : tone === "destructive"
+        ? "text-destructive"
+        : "text-ink";
+  return (
+    <div className="rounded-xl bg-paper-2/50 border border-border px-4 py-3 text-center">
+      <div className="text-xs font-semibold text-muted-foreground">{label}</div>
+      <div className={cn("display text-lg tabular-nums", toneClass)}>
+        {v.toLocaleString("ar-EG")} ج.م
+      </div>
+    </div>
+  );
+}
+
+export function buildIndividualPayload({ ind, family, fin, financialNotes, churchSupport, customRevenues = [], customExpenses = [] }: IndividualFormData) {
   const cleanFamily = family.filter((f) => f.full_name.trim().length);
   const cleanChurchSupport = churchSupport.filter((cs) => cs.church_name.trim().length);
+  const cleanCustomRevenues = cleanCustomFinancials(customRevenues);
+  const cleanCustomExpenses = cleanCustomFinancials(customExpenses);
   const gender = normalizeGender(ind.gender);
   if (!gender) {
     throw new Error("برجاء اختيار النوع");
@@ -815,6 +1293,13 @@ export function buildIndividualPayload({ ind, family, fin, churchSupport }: Indi
   
   // If housing type is "أخرى", use the custom input value
   const finalHousingType = ind.housing_type === "أخرى" ? ind.housing_type_other : ind.housing_type;
+
+  const householdGoods = cleanHouseholdGoods(ind.household_goods);
+  const familyConditions = cleanFamilyConditions(ind.family_conditions);
+  const goodsByName = new Map(householdGoods.map((g) => [g.item_name, g]));
+  const legacyGoods = Object.fromEntries(
+    APPLIANCES.map((a) => [a.k, !!goodsByName.get(a.l)?.exists]),
+  );
 
   return {
     full_name: ind.full_name,
@@ -825,9 +1310,9 @@ export function buildIndividualPayload({ ind, family, fin, churchSupport }: Indi
     birth_date: ind.birth_date || null,
     birth_governorate: ind.birth_governorate ?? null,
     job: ind.job ?? null,
-    salary: ind.salary ? Number(ind.salary) : null,
-    phone: ind.phone ?? null,
-    mobile: ind.mobile ?? null,
+    salary: ind.salary ?? null,
+    wife_mobile: ind.wife_mobile ?? null,
+    husband_mobile: ind.husband_mobile ?? null,
     landline: ind.landline ?? null,
     confession_father: ind.confession_father ?? null,
     saint_family: ind.saint_family ?? null,
@@ -835,15 +1320,9 @@ export function buildIndividualPayload({ ind, family, fin, churchSupport }: Indi
     household_count: ind.household_count ? Number(ind.household_count) : null,
     housing_type: finalHousingType ?? null,
     rooms: ind.rooms ? Number(ind.rooms) : null,
-    has_washing_machine: !!ind.has_washing_machine,
-    has_fridge: !!ind.has_fridge,
-    has_stove: !!ind.has_stove,
-    has_mattress: !!ind.has_mattress,
-    has_computer: !!ind.has_computer,
-    has_sofa: !!ind.has_sofa,
-    has_dining: !!ind.has_dining,
-    has_tv: !!ind.has_tv,
-    has_wardrobe: !!ind.has_wardrobe,
+    household_goods: householdGoods,
+    family_conditions: familyConditions,
+    ...legacyGoods,
     has_alt_address: !!ind.has_alt_address,
     alt_address: ind.alt_address ?? null,
     alt_governorate: ind.alt_governorate ?? null,
@@ -870,6 +1349,9 @@ export function buildIndividualPayload({ ind, family, fin, churchSupport }: Indi
       rent: Number(fin.rent || 0),
       treatment_cost: Number(fin.treatment_cost || 0),
       education_cost: Number(fin.education_cost || 0),
+      financial_notes: financialNotes?.trim() ? financialNotes.trim() : null,
+      custom_revenues: cleanCustomRevenues,
+      custom_expenses: cleanCustomExpenses,
     },
     churchSupport: cleanChurchSupport.map((cs) => ({
       id: cs.id,

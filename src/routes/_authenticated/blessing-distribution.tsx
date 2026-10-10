@@ -252,14 +252,14 @@ function BlessingDistribution() {
   }
 
   return (
-    <div className="max-w-4xl mx-auto space-y-6">
-      <div className="paper-card">
+    <div className="w-full max-w-4xl mx-auto space-y-6 overflow-x-hidden">
+      <div className="paper-card w-full max-w-full overflow-x-hidden">
         <h1 className="display text-2xl mb-6">توزيع البركة</h1>
 
         {/* Remaining Blessing Total - Admin Only */}
         {isAdmin && inventory && (
           <div className="bg-primary/10 border border-primary/20 rounded-xl p-4 mb-6">
-            <div className="flex justify-between items-center">
+            <div className="flex flex-wrap justify-between items-center gap-2">
               <span className="text-sm font-semibold text-primary">إجمالي البركة المتبقية</span>
               <span className="text-2xl font-bold tabular-nums text-primary">
                 {inventory.weekly_total}
@@ -291,35 +291,35 @@ function BlessingDistribution() {
         {selectedFamily && (
           <>
             {/* Statistics */}
-            <div className="grid grid-cols-2 gap-4 mb-6">
-              <div className="bg-primary/10 rounded-xl p-4 text-center">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4 mb-6">
+              <div className="w-full min-w-0 bg-primary/10 rounded-xl p-4 text-center">
                 <div className="text-3xl font-bold text-primary tabular-nums">{receivedCount}</div>
-                <div className="text-sm text-muted-foreground">استلموا البركة</div>
+                <div className="text-sm text-muted-foreground break-words">استلموا البركة</div>
               </div>
-              <div className="bg-muted rounded-xl p-4 text-center">
+              <div className="w-full min-w-0 bg-muted rounded-xl p-4 text-center">
                 <div className="text-3xl font-bold tabular-nums">{notReceivedCount}</div>
-                <div className="text-sm text-muted-foreground">لم يستلموا البركة</div>
+                <div className="text-sm text-muted-foreground break-words">لم يستلموا البركة</div>
               </div>
             </div>
 
             {/* Scanner Active Indicator */}
-            <div className="bg-primary/5 border border-primary/15 rounded-xl p-4 mb-6 flex items-center gap-3">
-              <div className="relative">
+            <div className="bg-primary/5 border border-primary/15 rounded-xl p-4 mb-6 flex flex-wrap items-center gap-3">
+              <div className="relative shrink-0">
                 <ScanBarcode size={22} className="text-primary" />
                 {!scannerProcessing && (
                   <span className="absolute -top-0.5 -right-0.5 w-2.5 h-2.5 bg-success rounded-full animate-pulse" />
                 )}
               </div>
-              <div className="flex-1">
+              <div className="min-w-0 flex-1">
                 <div className="text-sm font-semibold text-primary">
                   {scannerProcessing ? "جارٍ التسجيل..." : "جاهز لمسح الباركود"}
                 </div>
-                <div className="text-xs text-muted-foreground">
+                <div className="text-xs text-muted-foreground break-words">
                   امسح بطاقة المخدوم لتسجيل البركة
                 </div>
               </div>
               {lastScannedName && (
-                <div className="text-xs bg-success/15 text-success px-3 py-1 rounded-full font-semibold">
+                <div className="max-w-full min-w-0 truncate text-xs bg-success/15 text-success px-3 py-1 rounded-full font-semibold">
                   آخر مسح: {lastScannedName}
                 </div>
               )}
@@ -329,21 +329,26 @@ function BlessingDistribution() {
             {isAdmin && (
               <form
                 onSubmit={handleManualScan}
-                className="bg-paper-2 rounded-xl p-4 mb-6 flex gap-3 items-center"
+                className="bg-paper-2 rounded-xl p-4 mb-6 flex flex-col sm:flex-row gap-3 sm:items-center"
               >
-                <Search size={20} className="text-muted-foreground shrink-0" />
-                <input
-                  type="text"
-                  value={manualInput}
-                  onChange={(e) => setManualInput(e.target.value)}
-                  className="flex-1 rounded-xl bg-paper px-4 py-3 outline-none focus:ring-2 focus:ring-ring"
-                  disabled={manualLoading}
-                  autoComplete="off"
-                  placeholder="أدخل الرقم القومي للمسح"
-                />
+                <div className="relative min-w-0 flex-1">
+                  <Search
+                    size={20}
+                    className="absolute start-3 top-1/2 -translate-y-1/2 text-muted-foreground shrink-0 pointer-events-none"
+                  />
+                  <input
+                    type="text"
+                    value={manualInput}
+                    onChange={(e) => setManualInput(e.target.value)}
+                    className="w-full rounded-xl bg-paper ps-11 pe-4 py-3 outline-none focus:ring-2 focus:ring-ring"
+                    disabled={manualLoading}
+                    autoComplete="off"
+                    placeholder="أدخل الرقم القومي للمسح"
+                  />
+                </div>
                 <button
                   type="submit"
-                  className="chip-green px-4 py-3 text-sm whitespace-nowrap"
+                  className="chip-green w-full sm:w-auto px-4 py-3 text-sm whitespace-nowrap"
                   disabled={manualLoading || !manualInput.trim()}
                 >
                   {manualLoading ? "جاري..." : "مسح الباركود"}
@@ -359,7 +364,7 @@ function BlessingDistribution() {
                 لا يوجد أفراد مسجلين في هذه الأسرة
               </div>
             ) : (
-              <div className="space-y-2 max-h-96 overflow-y-auto">
+              <div className="w-full max-w-full space-y-2 max-h-96 overflow-y-auto overflow-x-hidden pe-1">
                 {individuals.map((individual) => {
                   const isReceived = receivedSet.has(individual.id);
                   const toggling = toggleMutation.isPending;
@@ -391,14 +396,16 @@ function BlessingDistribution() {
                       >
                         {isReceived && <Check size={14} className="text-primary-foreground" />}
                       </button>
-                      <div className="flex-1">
-                        <div className="font-semibold">{individual.full_name}</div>
+                      <div className="min-w-0 flex-1">
+                        <div className="font-semibold break-words">{individual.full_name}</div>
                         {individual.nickname && (
-                          <div className="text-sm text-muted-foreground">{individual.nickname}</div>
+                          <div className="text-sm text-muted-foreground break-words">
+                            {individual.nickname}
+                          </div>
                         )}
                       </div>
                       {isReceived && (
-                        <span className="text-xs bg-primary text-primary-foreground px-2 py-1 rounded-full">
+                        <span className="shrink-0 text-xs bg-primary text-primary-foreground px-2 py-1 rounded-full whitespace-nowrap">
                           استلم البركة
                         </span>
                       )}

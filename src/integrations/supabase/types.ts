@@ -56,9 +56,9 @@ export interface Database {
           birth_date: string | null;
           birth_governorate: string | null;
           job: string | null;
-          salary: number | null;
-          phone: string | null;
-          mobile: string | null;
+          salary: string | null;
+          wife_mobile: string | null;
+          husband_mobile: string | null;
           landline: string | null;
           confession_father: string | null;
           saint_family: string | null;
@@ -66,6 +66,8 @@ export interface Database {
           household_count: number | null;
           housing_type: string | null;
           rooms: number | null;
+          household_goods: Json | null;
+          family_conditions: Json | null;
           has_washing_machine: boolean | null;
           has_fridge: boolean | null;
           has_stove: boolean | null;
@@ -92,9 +94,9 @@ export interface Database {
           birth_date?: string | null;
           birth_governorate?: string | null;
           job?: string | null;
-          salary?: number | null;
-          phone?: string | null;
-          mobile?: string | null;
+          salary?: string | null;
+          wife_mobile?: string | null;
+          husband_mobile?: string | null;
           landline?: string | null;
           confession_father?: string | null;
           saint_family?: string | null;
@@ -102,6 +104,8 @@ export interface Database {
           household_count?: number | null;
           housing_type?: string | null;
           rooms?: number | null;
+          household_goods?: Json | null;
+          family_conditions?: Json | null;
           has_washing_machine?: boolean | null;
           has_fridge?: boolean | null;
           has_stove?: boolean | null;
@@ -128,9 +132,9 @@ export interface Database {
           birth_date?: string | null;
           birth_governorate?: string | null;
           job?: string | null;
-          salary?: number | null;
-          phone?: string | null;
-          mobile?: string | null;
+          salary?: string | null;
+          wife_mobile?: string | null;
+          husband_mobile?: string | null;
           landline?: string | null;
           confession_father?: string | null;
           saint_family?: string | null;
@@ -138,6 +142,8 @@ export interface Database {
           household_count?: number | null;
           housing_type?: string | null;
           rooms?: number | null;
+          household_goods?: Json | null;
+          family_conditions?: Json | null;
           has_washing_machine?: boolean | null;
           has_fridge?: boolean | null;
           has_stove?: boolean | null;
@@ -226,6 +232,9 @@ export interface Database {
           rent: number | null;
           treatment_cost: number | null;
           education_cost: number | null;
+          financial_notes: string | null;
+          custom_revenues: Json | null;
+          custom_expenses: Json | null;
           created_at: string;
           updated_at: string;
         };
@@ -242,6 +251,9 @@ export interface Database {
           rent?: number | null;
           treatment_cost?: number | null;
           education_cost?: number | null;
+          financial_notes?: string | null;
+          custom_revenues?: Json | null;
+          custom_expenses?: Json | null;
           created_at?: string;
           updated_at?: string;
         };
@@ -258,6 +270,9 @@ export interface Database {
           rent?: number | null;
           treatment_cost?: number | null;
           education_cost?: number | null;
+          financial_notes?: string | null;
+          custom_revenues?: Json | null;
+          custom_expenses?: Json | null;
           created_at?: string;
           updated_at?: string;
         };

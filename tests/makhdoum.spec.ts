@@ -20,7 +20,7 @@ test.describe('Makhdoum management CRUD', () => {
   test('creates a primary Makhdoum and adds family members, then updates and deletes them', async ({ page }) => {
     await page.getByLabel('الاسم').fill('QA Playwright');
     await page.getByLabel('الرقم القومي').fill('30001010101010');
-    await page.getByLabel('رقم الموبايل').fill('01000000000');
+    await page.getByLabel('رقم موبايل الزوجة').fill('01000000000');
     await page.getByLabel('العنوان بالتفصيل').fill('اختبار Playwright');
     await page.getByRole('button', { name: 'إضافة فرد' }).click();
     await page.locator('table tbody tr').nth(0).getByRole('textbox').first().fill('أبناء QA');
@@ -45,7 +45,7 @@ test.describe('Makhdoum management CRUD', () => {
     await expect(page.getByText('أبناء QA')).toBeVisible();
 
     await page.getByRole('button', { name: 'تعديل' }).click();
-    await page.getByLabel('رقم الموبايل').fill('01111111111');
+    await page.getByLabel('رقم موبايل الزوجة').fill('01111111111');
     await page.getByLabel('العنوان بالتفصيل').fill('عنوان محدث');
     await page.getByRole('button', { name: 'حفظ التعديلات' }).click();
     await expect(page.getByText('تم حفظ التعديلات')).toBeVisible({ timeout: 45_000 });
@@ -55,7 +55,7 @@ test.describe('Makhdoum management CRUD', () => {
 
     // Second edit cycle — must still keep exactly one copy of each family member.
     await page.getByRole('button', { name: 'تعديل' }).click();
-    await page.getByLabel('رقم الموبايل').fill('01222222222');
+    await page.getByLabel('رقم موبايل الزوجة').fill('01222222222');
     await page.getByRole('button', { name: 'حفظ التعديلات' }).click();
     await expect(page.getByText('تم حفظ التعديلات')).toBeVisible({ timeout: 45_000 });
     await expect(page.getByText('أبناء QA')).toHaveCount(1);

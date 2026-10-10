@@ -51,19 +51,19 @@ export function BarcodeDisplay({ value, label }: BarcodeDisplayProps) {
   if (!value) return null;
 
   return (
-    <div className="paper-card">
-      <div className="flex items-center justify-between mb-3">
+    <div className="paper-card w-full max-w-full overflow-x-hidden">
+      <div className="flex flex-wrap items-center justify-between gap-3 mb-3">
         <h3 className="display text-lg">{label ?? "الباركود"}</h3>
         <button
           type="button"
           onClick={handleDownload}
-          className="chip-dark px-4 py-2 text-sm flex items-center gap-2"
+          className="chip-dark w-full sm:w-auto px-4 py-2 text-sm flex items-center justify-center gap-2"
         >
           <Download size={16} /> تحميل الباركود (PNG)
         </button>
       </div>
-      <div ref={wrapperRef} className="flex justify-center bg-white rounded-xl p-4">
-        <svg ref={svgRef} />
+      <div ref={wrapperRef} className="w-full max-w-full overflow-x-auto bg-white rounded-xl p-4">
+        <svg ref={svgRef} className="mx-auto block" />
       </div>
     </div>
   );

@@ -89,7 +89,7 @@ function isSectorAllowedForRole(sector: string, role: Role | null): boolean {
 }
 
 const INDIVIDUAL_LIST_COLUMNS =
-  "id, full_name, nickname, national_id, phone, job, saint_family, address" as const;
+  "id, full_name, nickname, national_id, wife_mobile, job, saint_family, address" as const;
 
 /** Map stored/UI gender values to the canonical enum used in the database. */
 export function normalizeGender(value: unknown): "male" | "female" | undefined {
@@ -321,7 +321,7 @@ export const searchIndividuals = createServerFn({ method: "GET" })
       full_name: row.full_name,
       nickname: row.nickname,
       national_id: row.national_id,
-      phone: row.phone,
+      wife_mobile: row.wife_mobile,
       job: row.job,
       saint_family: row.saint_family,
       address: row.address,
@@ -353,7 +353,7 @@ export const searchIndividuals = createServerFn({ method: "GET" })
         full_name: individual?.full_name ?? "",
         nickname: individual?.nickname,
         national_id: individual?.national_id,
-        phone: individual?.phone,
+        wife_mobile: individual?.wife_mobile,
         job: individual?.job,
         saint_family: individual?.saint_family ?? null,
         address: individual?.address ?? null,
@@ -401,7 +401,7 @@ export const getAllGuests = createServerFn({ method: "GET" })
         full_name: row.full_name,
         nickname: row.nickname,
         national_id: row.national_id,
-        phone: row.phone,
+        wife_mobile: row.wife_mobile,
         job: row.job,
         saint_family: row.saint_family,
         address: row.address,
@@ -472,7 +472,7 @@ export const getAllGuests = createServerFn({ method: "GET" })
           full_name: individual?.full_name ?? "",
           nickname: individual?.nickname,
           national_id: individual?.national_id,
-          phone: individual?.phone,
+          wife_mobile: individual?.wife_mobile,
           job: individual?.job,
           saint_family: individual?.saint_family ?? null,
           address: individual?.address ?? null,
@@ -489,7 +489,7 @@ export const getAllGuests = createServerFn({ method: "GET" })
   });
 
 const EXPORT_INDIVIDUAL_COLUMNS =
-  "id, full_name, nickname, gender, mother_name, national_id, birth_date, job, salary, phone, mobile, landline, confession_father, saint_family, address, household_count, housing_type, rooms, has_washing_machine, has_fridge, has_stove, has_mattress, has_computer, has_sofa, has_dining, has_tv, has_wardrobe, has_alt_address, alt_address, alt_governorate" as const;
+  "id, full_name, nickname, gender, mother_name, national_id, birth_date, job, salary, wife_mobile, husband_mobile, landline, confession_father, saint_family, address, household_count, housing_type, rooms, household_goods, family_conditions, has_washing_machine, has_fridge, has_stove, has_mattress, has_computer, has_sofa, has_dining, has_tv, has_wardrobe, has_alt_address, alt_address, alt_governorate" as const;
 
 export const getExportData = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
@@ -620,9 +620,9 @@ const individualSchema = z.object({
   birth_date: z.string().optional().nullable(),
   birth_governorate: z.string().optional().nullable(),
   job: z.string().optional().nullable(),
-  salary: z.number().optional().nullable(),
-  phone: z.string().optional().nullable(),
-  mobile: z.string().optional().nullable(),
+  salary: z.string().optional().nullable(),
+  wife_mobile: z.string().optional().nullable(),
+  husband_mobile: z.string().optional().nullable(),
   landline: z.string().optional().nullable(),
   confession_father: z.string().optional().nullable(),
   saint_family: saintFamilySchema,
@@ -630,6 +630,27 @@ const individualSchema = z.object({
   household_count: z.number().int().optional().nullable(),
   housing_type: z.string().optional().nullable(),
   rooms: z.number().int().optional().nullable(),
+  household_goods: z
+    .array(
+      z.object({
+        item_name: z.string(),
+        exists: z.boolean(),
+        quantity: z.number(),
+      }),
+    )
+    .optional()
+    .nullable(),
+  family_conditions: z
+    .array(
+      z.object({
+        member_name: z.string().optional().nullable(),
+        category: z.string().optional().nullable(),
+        title: z.string().optional().nullable(),
+        notes: z.string().optional().nullable(),
+      }),
+    )
+    .optional()
+    .nullable(),
   has_washing_machine: z.boolean().optional(),
   has_fridge: z.boolean().optional(),
   has_stove: z.boolean().optional(),
@@ -670,6 +691,15 @@ const individualSchema = z.object({
       rent: z.number().optional(),
       treatment_cost: z.number().optional(),
       education_cost: z.number().optional(),
+      financial_notes: z.string().optional().nullable(),
+      custom_revenues: z
+        .array(z.object({ name: z.string(), amount: z.number() }))
+        .optional()
+        .nullable(),
+      custom_expenses: z
+        .array(z.object({ name: z.string(), amount: z.number() }))
+        .optional()
+        .nullable(),
     })
     .optional(),
   churchSupport: z

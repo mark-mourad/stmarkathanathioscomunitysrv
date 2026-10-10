@@ -147,9 +147,12 @@
 @layer base {
   html {
     direction: rtl;
+    max-width: 100%;
+    overflow-x: hidden;
   }
   * { border-color: var(--color-border); }
   body {
+    max-width: 100%;
     background-color: var(--color-background);
     color: var(--color-foreground);
     font-family: var(--font-body);

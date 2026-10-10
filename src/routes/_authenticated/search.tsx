@@ -1,11 +1,17 @@
 import { createFileRoute, Link, useRouter } from "@tanstack/react-router";
 import { useState, useEffect } from "react";
 import { useServerFn } from "@tanstack/react-start";
-import { getAllGuests, searchIndividuals, getExportData, type SaintFamily } from "@/lib/church.functions";
+import {
+  getAllGuests,
+  searchIndividuals,
+  getExportData,
+  type SaintFamily,
+} from "@/lib/church.functions";
 import { Search as SearchIcon, Download, Users } from "lucide-react";
 import { z } from "zod";
 import { useAuth } from "@/hooks/use-auth";
 import { getVisibleSaintFamilyValues } from "@/lib/permissions";
+import { cleanHouseholdGoods } from "@/components/individual-form";
 import { toast } from "sonner";
 
 const searchSchema = z.object({
@@ -54,7 +60,10 @@ function SearchPage() {
 
   function handleFamilyClick(family: SaintFamily) {
     // 1. Hidden Families check
-    if (family === "أسر مستترة" && !["SUPER_ADMIN", "ADMIN", "ST_HIDDEN_FAMILIES"].includes(role as any)) {
+    if (
+      family === "أسر مستترة" &&
+      !["SUPER_ADMIN", "ADMIN", "ST_HIDDEN_FAMILIES"].includes(role as any)
+    ) {
       toast.error("غير مصرح لك بهذا الحقل");
       return;
     }
@@ -69,14 +78,19 @@ function SearchPage() {
 
   async function loadBeneficiaries(saintFamily?: SaintFamily) {
     setLoading(true);
+    // Persist the selected family immediately so the active filter survives a
+    // slow or failed request instead of snapping back to "nothing selected".
+    setFamilyFilter(saintFamily ?? "");
     try {
       const r = await loadGuests({ data: saintFamily ? { saint_family: saintFamily } : {} });
       setResults(r);
       setTouched(true);
       setQ("");
-      setFamilyFilter(saintFamily ?? "");
     } catch (error) {
       console.error("Error loading beneficiaries:", error);
+      setResults([]);
+      setTouched(true);
+      toast.error(error instanceof Error ? error.message : "تعذر تحميل بيانات الأسرة");
     } finally {
       setLoading(false);
     }
@@ -89,15 +103,18 @@ function SearchPage() {
   const placeholder = mode === "name" ? "الاسم" : "الرقم القومي";
 
   // Family filter: show only primary beneficiaries when a specific family is selected
-  const filteredResults = familyFilter 
+  const filteredResults = familyFilter
     ? results.filter((r) => r.saint_family === familyFilter && r.type === "individual")
     : results;
 
   // Export: admins always; family servants only when filter matches their family or is unset; others preserved
-  const canExport = isAdmin || (isFamilyServant ? (!familyFilter || familyFilter === assignedFamily) : true);
+  const canExport =
+    isAdmin || (isFamilyServant ? !familyFilter || familyFilter === assignedFamily : true);
 
   async function exportToCSV() {
-    const data = await fetchExportData({ data: familyFilter ? { saint_family: familyFilter as SaintFamily } : {} });
+    const data = await fetchExportData({
+      data: familyFilter ? { saint_family: familyFilter as SaintFamily } : {},
+    });
 
     const APPLIANCE_LABELS: Record<string, string> = {
       has_washing_machine: "غسالة",
@@ -134,9 +151,9 @@ function SearchPage() {
       "اسم الأم",
       "الرقم القومي",
       "تاريخ الميلاد",
-      "الوظيفة / المهنة",
-      "رقم التليفون",
-      "رقم موبايل آخر",
+      "وظيفة الزوج",
+      "رقم موبايل الزوجة",
+      "رقم موبايل الزوج",
       "تلفون أرضي",
       "أب الاعتراف",
       "أسرة القديس",
@@ -162,10 +179,30 @@ function SearchPage() {
     (data.individuals ?? []).forEach((ind: any) => {
       const fin = data.financialsMap?.[ind.id] ?? {};
       const cs = data.churchSupportMap?.[ind.id] ?? { total: 0, details: "" };
-      const totalIncome = Number(fin.basic_salary || 0) + Number(fin.extra_income || 0) + Number(fin.church_monthly || 0) + Number(fin.therapeutic_aid || 0) + Number(fin.study_aid || 0);
-      const totalExpenses = Number(fin.electricity_gas_water || 0) + Number(fin.phone_bill || 0) + Number(fin.rent || 0) + Number(fin.treatment_cost || 0) + Number(fin.education_cost || 0);
-      const appliances = APPLIANCE_KEYS.filter((k) => ind[k]).map((k) => APPLIANCE_LABELS[k]).join("، ");
-      const altAddress = ind.has_alt_address ? [ind.alt_address, ind.alt_governorate].filter(Boolean).join(" - ") : "";
+      const totalIncome =
+        Number(fin.basic_salary || 0) +
+        Number(fin.extra_income || 0) +
+        Number(fin.church_monthly || 0) +
+        Number(fin.therapeutic_aid || 0) +
+        Number(fin.study_aid || 0);
+      const totalExpenses =
+        Number(fin.electricity_gas_water || 0) +
+        Number(fin.phone_bill || 0) +
+        Number(fin.rent || 0) +
+        Number(fin.treatment_cost || 0) +
+        Number(fin.education_cost || 0);
+      const storedGoods = cleanHouseholdGoods(ind.household_goods);
+      const appliances = storedGoods.length
+        ? storedGoods
+            .filter((g) => g.exists)
+            .map((g) => (g.quantity > 1 ? `${g.item_name} (${g.quantity})` : g.item_name))
+            .join("، ")
+        : APPLIANCE_KEYS.filter((k) => ind[k])
+            .map((k) => APPLIANCE_LABELS[k])
+            .join("، ");
+      const altAddress = ind.has_alt_address
+        ? [ind.alt_address, ind.alt_governorate].filter(Boolean).join(" - ")
+        : "";
 
       rows.push([
         ind.full_name || "",
@@ -177,8 +214,8 @@ function SearchPage() {
         textCell(ind.national_id),
         ind.birth_date || "",
         ind.job || "",
-        textCell(ind.phone),
-        textCell(ind.mobile),
+        textCell(ind.wife_mobile),
+        textCell(ind.husband_mobile),
         textCell(ind.landline),
         ind.confession_father || "",
         ind.saint_family || "",
@@ -189,7 +226,9 @@ function SearchPage() {
         String(ind.household_count || ""),
         String(totalIncome || ""),
         String(totalExpenses || ""),
-        cs.details || cs.total ? `${cs.details}${cs.details && cs.total ? " (الإجمالي: " + cs.total + ")" : cs.total ? "الإجمالي: " + cs.total : ""}` : "",
+        cs.details || cs.total
+          ? `${cs.details}${cs.details && cs.total ? " (الإجمالي: " + cs.total + ")" : cs.total ? "الإجمالي: " + cs.total : ""}`
+          : "",
         "",
       ]);
 
@@ -224,10 +263,11 @@ function SearchPage() {
     });
 
     const BOM = "\uFEFF";
-    const csvContent = BOM + [
-      headers.map(csvEscape).join(","),
-      ...rows.map((row) => row.map(csvEscape).join(","))
-    ].join("\n");
+    const csvContent =
+      BOM +
+      [headers.map(csvEscape).join(","), ...rows.map((row) => row.map(csvEscape).join(","))].join(
+        "\n",
+      );
 
     const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
     const url = URL.createObjectURL(blob);
@@ -270,19 +310,27 @@ function SearchPage() {
       <>
         <div className="flex gap-3 justify-center mb-6">
           <button
-            onClick={() => { setMode("name"); setResults([]); setTouched(false); }}
+            onClick={() => {
+              setMode("name");
+              setResults([]);
+              setTouched(false);
+            }}
             className={`chip-dark px-6 ${mode === "name" ? "" : "opacity-60"}`}
           >
             البحث بالاسم
           </button>
           <button
-            onClick={() => { setMode("national_id"); setResults([]); setTouched(false); }}
+            onClick={() => {
+              setMode("national_id");
+              setResults([]);
+              setTouched(false);
+            }}
             className={`chip-dark px-6 ${mode === "national_id" ? "" : "opacity-60"}`}
           >
             البحث بالرقم القومي
           </button>
         </div>
-        
+
         {/* Family Buttons — primary filter (hidden families hidden from unauthorized roles) */}
         <div className="mt-6 mb-6">
           <div className="grid grid-cols-2 gap-3 max-w-sm mx-auto">
@@ -304,12 +352,15 @@ function SearchPage() {
             ))}
           </div>
         </div>
-        
+
         <form onSubmit={onSubmit} className="relative">
           <input
             value={touched ? q : ""}
             onFocus={() => setTouched(true)}
-            onChange={(e) => { setTouched(true); setQ(e.target.value); }}
+            onChange={(e) => {
+              setTouched(true);
+              setQ(e.target.value);
+            }}
             placeholder={touched ? "" : placeholder}
             className="w-full rounded-full bg-paper-2 px-8 py-6 text-center display text-xl text-muted-foreground/70 focus:text-foreground shadow-soft outline-none focus:ring-2 focus:ring-ring"
             inputMode={mode === "national_id" ? "numeric" : "text"}
@@ -321,7 +372,7 @@ function SearchPage() {
             <SearchIcon size={20} />
           </button>
         </form>
-        
+
         {/* Export button — visible when there are results and user is authorized */}
         {results.length > 0 && canExport && (
           <div className="mt-4 flex justify-center">
@@ -333,7 +384,7 @@ function SearchPage() {
             </button>
           </div>
         )}
-        
+
         <div className="mt-8 space-y-3">
           {loading && <p className="text-center text-muted-foreground">جارٍ البحث...</p>}
           {!loading && touched && results.length === 0 && (
@@ -358,7 +409,7 @@ function SearchPage() {
                   )}
                 </div>
                 <div className="text-sm text-muted-foreground">
-                  {r.job || "—"} · {r.phone || "—"}
+                  {r.job || "—"} · {r.wife_mobile || "—"}
                 </div>
                 {r.type === "family" && (
                   <div className="text-xs mt-1 rounded-full bg-primary/10 px-2 py-1 inline-flex items-center gap-1 text-primary">
@@ -378,4 +429,3 @@ function SearchPage() {
     </div>
   );
 }
-

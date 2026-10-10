@@ -9,8 +9,16 @@ import { toast } from "sonner";
 import {
   IndividualForm,
   buildIndividualPayload,
+  cleanHouseholdGoods,
+  cleanFamilyConditions,
+  buildInitialCustomFinancials,
+  STANDARD_REVENUE_KEYS,
+  STANDARD_EXPENSE_KEYS,
   type FamilyRow,
   type ChurchSupportRow,
+  type HouseholdGood,
+  type FamilyCondition,
+  type CustomFinancialRow,
 } from "@/components/individual-form";
 import { AssistanceForm } from "@/components/assistance-form";
 import { AssistanceHistory } from "@/components/assistance-history";
@@ -55,6 +63,40 @@ const APPL = [
   ["has_tv", "تلفزيون"],
   ["has_wardrobe", "دولاب"],
 ] as const;
+
+function getHouseholdGoods(ind: Record<string, unknown>): HouseholdGood[] {
+  const stored = cleanHouseholdGoods(ind?.household_goods);
+  if (stored.length) return stored.filter((g) => g.exists);
+  return APPL.filter(([k]) => ind?.[k]).map(([, l]) => ({
+    item_name: l,
+    exists: true,
+    quantity: 1,
+  }));
+}
+
+const CONDITION_CATEGORY_LABELS: Record<string, string> = {
+  diseases: "أمراض",
+  disabilities: "إعاقة",
+  other: "ظروف أخرى",
+};
+
+function conditionCategoryLabel(category: string): string {
+  return CONDITION_CATEGORY_LABELS[category] ?? "أخرى";
+}
+
+function groupConditionsByMember(items: FamilyCondition[]): Array<{ member: string; items: FamilyCondition[] }> {
+  const groups: Array<{ member: string; items: FamilyCondition[] }> = [];
+  const index = new Map<string, number>();
+  items.forEach((c) => {
+    const member = c.member_name?.trim() || "غير محدد";
+    if (!index.has(member)) {
+      index.set(member, groups.length);
+      groups.push({ member, items: [] });
+    }
+    groups[index.get(member)!].items.push(c);
+  });
+  return groups;
+}
 
 const FIN_KEYS = [
   "church_monthly",
@@ -127,6 +169,23 @@ function IndividualPage() {
   if (!data) return <p className="text-center text-muted-foreground">جارٍ التحميل...</p>;
 
   const { individual: ind, family, financials: f, churchSupport } = data;
+  const householdGoods = getHouseholdGoods(ind);
+  const familyConditions = cleanFamilyConditions(ind?.family_conditions);
+  const conditionGroups = groupConditionsByMember(familyConditions);
+
+  const customRevenues: CustomFinancialRow[] = buildInitialCustomFinancials(
+    f?.custom_revenues,
+  ).filter((r) => r.name || r.amount);
+  const customExpenses: CustomFinancialRow[] = buildInitialCustomFinancials(
+    f?.custom_expenses,
+  ).filter((r) => r.name || r.amount);
+  const totalIncome =
+    sumOf(f, [...STANDARD_REVENUE_KEYS]) +
+    customRevenues.reduce((s, r) => s + Number(r.amount || 0), 0);
+  const totalExpenses =
+    sumOf(f, [...STANDARD_EXPENSE_KEYS]) +
+    customExpenses.reduce((s, r) => s + Number(r.amount || 0), 0);
+  const netIncome = totalIncome - totalExpenses;
 
   if (editing && can("edit:beneficiary")) {
     const initialFamily: FamilyRow[] = family.length
@@ -158,6 +217,13 @@ function IndividualPage() {
         }))
       : [];
 
+    const initialCustomRevenues: CustomFinancialRow[] = buildInitialCustomFinancials(
+      f?.custom_revenues,
+    );
+    const initialCustomExpenses: CustomFinancialRow[] = buildInitialCustomFinancials(
+      f?.custom_expenses,
+    );
+
     const applianceKeys = [
       "has_washing_machine", "has_fridge", "has_stove", "has_mattress",
       "has_computer", "has_sofa", "has_dining", "has_tv", "has_wardrobe",
@@ -183,8 +249,8 @@ function IndividualPage() {
       })() : null,
       job: ind.job,
       salary: ind.salary,
-      phone: ind.phone,
-      mobile: ind.mobile,
+      wife_mobile: ind.wife_mobile,
+      husband_mobile: ind.husband_mobile,
       landline: ind.landline,
       confession_father: ind.confession_father,
       saint_family: ind.saint_family,
@@ -195,6 +261,8 @@ function IndividualPage() {
       has_alt_address: ind.has_alt_address,
       alt_address: ind.alt_address,
       alt_governorate: ind.alt_governorate,
+      household_goods: Array.isArray(ind.household_goods) ? ind.household_goods : undefined,
+      family_conditions: Array.isArray(ind.family_conditions) ? ind.family_conditions : [],
     };
     for (const k of applianceKeys) {
       initialInd[k] = ind[k];
@@ -207,7 +275,10 @@ function IndividualPage() {
           initialInd={initialInd}
           initialFamily={initialFamily}
           initialFin={initialFin}
+          initialFinancialNotes={f?.financial_notes ?? ""}
           initialChurchSupport={initialChurchSupport}
+          initialCustomRevenues={initialCustomRevenues}
+          initialCustomExpenses={initialCustomExpenses}
           submitLabel="حفظ التعديلات"
           busy={busy}
           role={role}
@@ -247,12 +318,12 @@ function IndividualPage() {
   }
 
   return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between gap-3">
+    <div className="flex w-full max-w-full flex-col space-y-6 overflow-x-hidden">
+      <div className="flex flex-wrap items-center justify-between gap-3">
         <Link to="/search" search={{ mode: "name" }} className="text-sm flex items-center gap-1 text-muted-foreground hover:text-primary">
           <ArrowRight size={16} /> رجوع للبحث
         </Link>
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2 max-w-full">
             {/* Delete button — visible to all but guarded */}
             <AlertDialog>
               <AlertDialogTrigger asChild>
@@ -310,26 +381,26 @@ function IndividualPage() {
       </div>
 
       {/* Header card with name pill */}
-      <div className="paper-card relative">
-        <div className="absolute -top-4 left-1/2 -translate-x-1/2 bg-paper-2 px-8 py-2 rounded-full shadow-soft display text-2xl text-muted-foreground/80">
+      <div className="paper-card relative w-full max-w-full">
+        <div className="absolute -top-4 left-1/2 -translate-x-1/2 max-w-[calc(100%-2rem)] truncate bg-paper-2 px-5 sm:px-8 py-2 rounded-full shadow-soft display text-xl sm:text-2xl text-muted-foreground/80 text-center">
           {ind.full_name}
         </div>
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 pt-6 text-sm">
+        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3 sm:gap-4 pt-6 text-sm">
           <Info label="الاسم" v={ind.full_name} />
           <Info label="اسم الشهرة" v={ind.nickname} />
           <Info label="اسم الأم" v={ind.mother_name} />
           <Info label="الرقم القومي" v={ind.national_id} />
           <Info label="تاريخ الميلاد" v={ind.birth_date} />
-          <Info label="الوظيفة" v={ind.job} />
-          <Info label="الراتب" v={ind.salary} />
-          <Info label="رقم التليفون" v={ind.phone} />
+          <Info label="وظيفة الزوج" v={ind.job} />
+          <Info label="وظيفة الزوجة" v={ind.salary} />
+          <Info label="رقم موبايل الزوجة" v={ind.wife_mobile} />
           <Info label="أب الاعتراف" v={ind.confession_father} />
           <Info label="أسرة القديس" v={ind.saint_family} />
           <Info label="العنوان بالتفصيل" v={ind.address} className="md:col-span-2" />
           <Info label="عدد الأفراد" v={ind.household_count} />
           <Info label="نوع السكن" v={ind.housing_type} />
           <Info label="الغرف" v={ind.rooms} />
-          <Info label="موبايل" v={ind.mobile} />
+          <Info label="رقم موبايل الزوج" v={ind.husband_mobile} />
           <Info label="تلفون" v={ind.landline} />
         </div>
 
@@ -337,23 +408,58 @@ function IndividualPage() {
         {ind.has_alt_address && (
           <div className="mt-4 pt-4 border-t border-border">
             <div className="text-sm font-semibold text-muted-foreground mb-2">سكن آخر</div>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3 sm:gap-4 text-sm">
               <Info label="عنوان السكن الآخر" v={ind.alt_address} className="md:col-span-2" />
               <Info label="محافظة السكن الآخر" v={ind.alt_governorate} />
             </div>
           </div>
         )}
-        <div className="grid grid-cols-3 md:grid-cols-9 gap-2 mt-5">
-          {APPL.map(([k, l]) => (
-            <div
-              key={k}
-              className={`text-center text-xs px-2 py-2 rounded-lg border ${
-                ind[k] ? "bg-success/15 border-success/40 text-success" : "bg-paper border-border text-muted-foreground"
-              }`}
-            >
-              {l}
+        {/* Family Condition Notes */}
+        <div className="mt-5 pt-4 border-t border-border">
+          <div className="text-sm font-semibold text-muted-foreground mb-2">ملحوظات عن حالة الأسرة</div>
+          {familyConditions.length === 0 ? (
+            <div className="text-sm text-muted-foreground">لا توجد ملاحظات مسجلة</div>
+          ) : (
+            <div className="space-y-3">
+              {conditionGroups.map((group) => (
+                <div key={group.member} className="rounded-xl border border-border bg-paper-2/40 p-3">
+                  <div className="font-semibold text-foreground mb-2">{group.member}</div>
+                  <div className="space-y-2">
+                    {group.items.map((c, i) => (
+                      <div key={i} className="flex items-start gap-2 text-sm">
+                        <span className="shrink-0 rounded-full bg-primary/10 text-primary px-2 py-0.5 text-[11px] font-semibold">
+                          {conditionCategoryLabel(c.category)}
+                        </span>
+                        <div className="min-w-0">
+                          {c.title && <div className="font-semibold">{c.title}</div>}
+                          {c.notes && <div className="text-muted-foreground whitespace-pre-wrap">{c.notes}</div>}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              ))}
             </div>
-          ))}
+          )}
+        </div>
+
+        <div className="mt-5 pt-4 border-t border-border">
+          <div className="text-sm font-semibold text-muted-foreground mb-2">المنقولات المنزلية</div>
+          {householdGoods.length === 0 ? (
+            <div className="text-sm text-muted-foreground">لا توجد منقولات مسجلة</div>
+          ) : (
+            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-2">
+              {householdGoods.map((g, i) => (
+                <div
+                  key={i}
+                  className="flex min-w-0 items-center justify-between gap-2 text-xs px-3 py-2 rounded-lg border bg-success/15 border-success/40 text-success"
+                >
+                  <span className="min-w-0 truncate font-semibold">{g.item_name}</span>
+                  <span className="shrink-0 tabular-nums">العدد: {g.quantity}</span>
+                </div>
+              ))}
+            </div>
+          )}
         </div>
       </div>
 
@@ -370,7 +476,7 @@ function IndividualPage() {
             تم تمييز فرد الأسرة المطابق باللون الأخضر داخل القائمة أدناه.
           </div>
         )}
-        <div className="overflow-x-auto">
+        <div className="max-w-full overflow-x-auto">
           <table className="w-full text-sm">
             <thead className="text-muted-foreground">
               <tr>
@@ -415,10 +521,10 @@ function IndividualPage() {
           <FinRow label="مصدر إضافي للدخل" v={f?.extra_income} />
           <FinRow label="مساعدات علاجية" v={f?.therapeutic_aid} />
           <FinRow label="مساعدات خلال دراسة" v={f?.study_aid} />
-          <Total
-            label="الإجمالي"
-            v={sumOf(f, ["church_monthly","basic_salary","extra_income","therapeutic_aid","study_aid"])}
-          />
+          {customRevenues.map((r, i) => (
+            <FinRow key={i} label={r.name || "إيراد آخر"} v={r.amount} />
+          ))}
+          <Total label="إجمالي الإيرادات" v={totalIncome} />
         </div>
         <div className="paper-card">
           <h3 className="display text-lg mb-3 text-destructive">المصروفات</h3>
@@ -427,18 +533,37 @@ function IndividualPage() {
           <FinRow label="إيجار" v={f?.rent} />
           <FinRow label="علاج" v={f?.treatment_cost} />
           <FinRow label="دراسة" v={f?.education_cost} />
-          <Total
-            label="الإجمالي"
-            v={sumOf(f, ["electricity_gas_water","phone_bill","rent","treatment_cost","education_cost"])}
-          />
+          {customExpenses.map((r, i) => (
+            <FinRow key={i} label={r.name || "مصروف آخر"} v={r.amount} />
+          ))}
+          <Total label="إجمالي المصروفات" v={totalExpenses} />
         </div>
       </div>
+
+      <div className="paper-card">
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <h3 className="display text-lg">صافي الدخل</h3>
+          <span
+            className={`display text-2xl tabular-nums ${netIncome < 0 ? "text-destructive" : "text-success"}`}
+          >
+            {netIncome.toLocaleString("ar-EG")} ج.م
+          </span>
+        </div>
+      </div>
+
+      {/* Financial Notes (ملاحظات مالية) */}
+      {f?.financial_notes ? (
+        <div className="paper-card">
+          <h3 className="display text-lg mb-3">ملاحظات مالية</h3>
+          <p className="text-sm text-foreground whitespace-pre-wrap">{f.financial_notes}</p>
+        </div>
+      ) : null}
 
       {/* Church Support from Other Churches */}
       {churchSupport && churchSupport.length > 0 && (
         <div className="paper-card">
           <h3 className="display text-lg mb-3">شهريات كنائس أخرى</h3>
-          <div className="overflow-x-auto">
+          <div className="max-w-full overflow-x-auto">
             <table className="w-full text-sm">
               <thead className="text-muted-foreground">
                 <tr>
@@ -516,9 +641,9 @@ function sumOf(f: any, keys: string[]) {
 }
 function Info({ label, v, className = "" }: { label: string; v: any; className?: string }) {
   return (
-    <div className={className}>
+    <div className={`min-w-0 ${className}`}>
       <div className="text-[11px] text-muted-foreground">{label}</div>
-      <div className="font-semibold text-foreground">{v ?? "—"}</div>
+      <div className="font-semibold text-foreground break-words">{v ?? "—"}</div>
     </div>
   );
 }
