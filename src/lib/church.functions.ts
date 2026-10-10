@@ -167,7 +167,7 @@ export const getDashboard = createServerFn({ method: "GET" })
 
 export const updateMetric = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .inputValidator((d) =>
+  .validator((d) =>
     z
       .object({
         id: z.string().uuid(),
@@ -209,7 +209,7 @@ export const updateMetric = createServerFn({ method: "POST" })
 
 export const saveHiddenFamiliesMetric = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .inputValidator((d) =>
+  .validator((d) =>
     z
       .object({
         monthly: z.number().nonnegative(),
@@ -264,7 +264,7 @@ export const saveHiddenFamiliesMetric = createServerFn({ method: "POST" })
 // ---- Search ----
 export const searchIndividuals = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
-  .inputValidator((d) =>
+  .validator((d) =>
     z.object({ mode: z.enum(["name", "national_id"]), q: z.string().min(1) }).parse(d),
   )
   .handler(async ({ data, context }) => {
@@ -367,7 +367,7 @@ export const searchIndividuals = createServerFn({ method: "GET" })
 
 export const getAllGuests = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
-  .inputValidator((d) => z.object({ saint_family: saintFamilySchema.optional() }).parse(d ?? {}))
+  .validator((d) => z.object({ saint_family: saintFamilySchema.optional() }).parse(d ?? {}))
   .handler(async ({ data, context }) => {
     const assignedFamily = getServerAssignedFamily(context);
     const saintFamily = assignedFamily ?? data.saint_family;
@@ -493,7 +493,7 @@ const EXPORT_INDIVIDUAL_COLUMNS =
 
 export const getExportData = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
-  .inputValidator((d) => z.object({ saint_family: saintFamilySchema.optional() }).parse(d ?? {}))
+  .validator((d) => z.object({ saint_family: saintFamilySchema.optional() }).parse(d ?? {}))
   .handler(async ({ data, context }) => {
     const assignedFamily = getServerAssignedFamily(context);
     const saintFamily = assignedFamily ?? data.saint_family;
@@ -576,7 +576,7 @@ export const getExportData = createServerFn({ method: "GET" })
 // ---- Individual full profile ----
 export const getIndividual = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
-  .inputValidator((d) => z.object({ id: z.string().uuid() }).parse(d))
+  .validator((d) => z.object({ id: z.string().uuid() }).parse(d))
   .handler(async ({ data, context }) => {
     const role = getServerRole(context);
     if (!hasPermission(role, "view:beneficiary")) {
@@ -715,7 +715,7 @@ const individualSchema = z.object({
 
 export const createIndividual = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .inputValidator((d) => individualSchema.parse(d))
+  .validator((d) => individualSchema.parse(d))
   .handler(async ({ data, context }) => {
     requirePermission(context, "add:beneficiary");
     const { family, financials, churchSupport, ...ind } = data;
@@ -770,7 +770,7 @@ export const createIndividual = createServerFn({ method: "POST" })
 
 export const updateIndividual = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .inputValidator((d) => individualSchema.extend({ id: z.string().uuid() }).parse(d))
+  .validator((d) => individualSchema.extend({ id: z.string().uuid() }).parse(d))
   .handler(async ({ data, context }) => {
     requirePermission(context, "edit:beneficiary");
     const { id, family, financials, churchSupport, ...ind } = data;
@@ -920,7 +920,7 @@ export const updateIndividual = createServerFn({ method: "POST" })
 
 export const deleteIndividual = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .inputValidator((d) => z.object({ id: z.string().uuid() }).parse(d))
+  .validator((d) => z.object({ id: z.string().uuid() }).parse(d))
   .handler(async ({ data, context }) => {
     requirePermission(context, "delete:beneficiary");
     const { error } = await context.supabase.from("individuals").delete().eq("id", data.id);
@@ -969,7 +969,7 @@ export const getInventory = createServerFn({ method: "POST" })
 
 export const updateInventory = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .inputValidator((d) =>
+  .validator((d) =>
     z
       .object({
         weekly_total: z.number().int().nonnegative(),
@@ -1023,7 +1023,7 @@ export const updateInventory = createServerFn({ method: "POST" })
 // ---- Blessing Distribution (توزيع البركة) ----
 export const getIndividualsBySaintFamily = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
-  .inputValidator((d) => z.object({ saint_family: saintFamilySchema }).parse(d))
+  .validator((d) => z.object({ saint_family: saintFamilySchema }).parse(d))
   .handler(async ({ data, context }) => {
     // Enforce family scoping for ST_* roles
     const assignedFamily = getServerAssignedFamily(context);
@@ -1057,7 +1057,7 @@ export const getIndividualsBySaintFamily = createServerFn({ method: "GET" })
 
 export const getBlessingDistribution = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
-  .inputValidator((d) =>
+  .validator((d) =>
     z
       .object({
         saint_family: saintFamilySchema,
@@ -1099,7 +1099,7 @@ export const getBlessingDistribution = createServerFn({ method: "GET" })
 
 export const saveBlessingDistribution = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .inputValidator((d) =>
+  .validator((d) =>
     z
       .object({
         saint_family: saintFamilySchema,
@@ -1203,7 +1203,7 @@ export const saveBlessingDistribution = createServerFn({ method: "POST" })
 
 export const scanBlessingDistribution = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .inputValidator((d) =>
+  .validator((d) =>
     z
       .object({
         national_id: z.string().min(1),
@@ -1302,7 +1302,7 @@ export const scanBlessingDistribution = createServerFn({ method: "POST" })
 
 export const toggleBlessingDistribution = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .inputValidator((d) =>
+  .validator((d) =>
     z
       .object({
         saint_family: saintFamilySchema,
@@ -1455,7 +1455,7 @@ export const getSaintFamilies = createServerFn({ method: "GET" })
 // ---- Assistance Module (مساعدات) ----
 export const getAssistanceLogs = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
-  .inputValidator((d) => z.object({ individual_id: z.string().uuid() }).parse(d))
+  .validator((d) => z.object({ individual_id: z.string().uuid() }).parse(d))
   .handler(async ({ data, context }) => {
     requirePermission(context, "view:sensitive");
     const { data: logs, error } = await context.supabase
@@ -1476,7 +1476,7 @@ export const getAssistanceLogs = createServerFn({ method: "GET" })
 
 export const getFamilyMemberAssistanceStatus = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
-  .inputValidator((d) => z.object({ individual_id: z.string().uuid() }).parse(d))
+  .validator((d) => z.object({ individual_id: z.string().uuid() }).parse(d))
   .handler(async ({ data, context }) => {
     requirePermission(context, "view:sensitive");
     // Get assistance logs for the main individual
@@ -1614,7 +1614,7 @@ const assistanceLogSchema = z.object({
 
 export const createAssistanceLog = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .inputValidator((d) => assistanceLogSchema.parse(d))
+  .validator((d) => assistanceLogSchema.parse(d))
   .handler(async ({ data, context }) => {
     requirePermission(context, "view:sensitive");
     const { bridal_details, medical_details, ...logData } = data;
@@ -1673,7 +1673,7 @@ export const createAssistanceLog = createServerFn({ method: "POST" })
 
 export const deleteAssistanceLog = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .inputValidator((d) => z.object({ id: z.string().uuid() }).parse(d))
+  .validator((d) => z.object({ id: z.string().uuid() }).parse(d))
   .handler(async ({ data, context }) => {
     requirePermission(context, "view:sensitive");
     const { error } = await context.supabase.from("assistance_logs").delete().eq("id", data.id);
@@ -1719,7 +1719,7 @@ export const getClothesRequests = createServerFn({ method: "GET" })
 
 export const getClothesRequestsByFamily = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
-  .inputValidator((d) => z.object({ saint_family: z.string().min(1) }).parse(d))
+  .validator((d) => z.object({ saint_family: z.string().min(1) }).parse(d))
   .handler(async ({ data, context }) => {
     requireVisibleFamily(context, data.saint_family);
     const { data: rows, error } = await context.supabase
@@ -1739,7 +1739,7 @@ export const getClothesRequestsByFamily = createServerFn({ method: "GET" })
 
 export const createClothesRequest = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .inputValidator((d) => clothesRequestSchema.parse(d))
+  .validator((d) => clothesRequestSchema.parse(d))
   .handler(async ({ data, context }) => {
     requireVisibleFamily(context, data.saint_family);
     const { data: created, error } = await context.supabase
@@ -1753,7 +1753,7 @@ export const createClothesRequest = createServerFn({ method: "POST" })
 
 export const updateClothesRequest = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .inputValidator((d) => clothesRequestSchema.extend({ id: z.string().uuid() }).parse(d))
+  .validator((d) => clothesRequestSchema.extend({ id: z.string().uuid() }).parse(d))
   .handler(async ({ data, context }) => {
     requireVisibleFamily(context, data.saint_family);
     const { id, ...rest } = data;
@@ -1764,7 +1764,7 @@ export const updateClothesRequest = createServerFn({ method: "POST" })
 
 export const deleteClothesRequest = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .inputValidator((d) => z.object({ id: z.string().uuid() }).parse(d))
+  .validator((d) => z.object({ id: z.string().uuid() }).parse(d))
   .handler(async ({ data, context }) => {
     const { error } = await context.supabase.from("clothes_requests").delete().eq("id", data.id);
     if (error) throw new Error(error.message);
@@ -1774,7 +1774,7 @@ export const deleteClothesRequest = createServerFn({ method: "POST" })
 /** Get children (ابن/ابنة) under a specific individual, optionally filtered by saint_family */
 export const getChildrenByFamily = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
-  .inputValidator((d) => z.object({ saint_family: z.string().min(1) }).parse(d))
+  .validator((d) => z.object({ saint_family: z.string().min(1) }).parse(d))
   .handler(async ({ data, context }) => {
     requireVisibleFamily(context, data.saint_family);
     const { data: individuals, error: indErr } = await context.supabase
@@ -1814,7 +1814,7 @@ const FURNITURE_REQUEST_STATUSES = ["تحت المراجعة", "مقبول", "م
 /** Get beneficiaries (individuals) by saint_family for the request form */
 export const getFurnitureBeneficiaries = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
-  .inputValidator((d) => z.object({ family_name: z.string().min(1) }).parse(d))
+  .validator((d) => z.object({ family_name: z.string().min(1) }).parse(d))
   .handler(async ({ data, context }) => {
     requireVisibleFamily(context, data.family_name);
     const { data: rows, error } = await context.supabase
@@ -1845,7 +1845,7 @@ export const getFurnitureInventory = createServerFn({ method: "GET" })
 /** Add furniture inventory item */
 export const addFurnitureInventoryItem = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .inputValidator((d) =>
+  .validator((d) =>
     z
       .object({
         category: furnitureCategorySchema,
@@ -1869,7 +1869,7 @@ export const addFurnitureInventoryItem = createServerFn({ method: "POST" })
 /** Update furniture inventory item */
 export const updateFurnitureInventoryItem = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .inputValidator((d) =>
+  .validator((d) =>
     z
       .object({
         id: z.string().uuid(),
@@ -1891,7 +1891,7 @@ export const updateFurnitureInventoryItem = createServerFn({ method: "POST" })
 /** Delete furniture inventory item */
 export const deleteFurnitureInventoryItem = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .inputValidator((d) => z.object({ id: z.string().uuid() }).parse(d))
+  .validator((d) => z.object({ id: z.string().uuid() }).parse(d))
   .handler(async ({ data, context }) => {
     requirePermission(context, "manage:furniture");
     const { error } = await context.supabase.from("furniture_inventory").delete().eq("id", data.id);
@@ -1927,7 +1927,7 @@ export const getMyFurnitureRequests = createServerFn({ method: "GET" })
 /** Create a furniture request (quantity always 1) */
 export const createFurnitureRequest = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .inputValidator((d) =>
+  .validator((d) =>
     z
       .object({
         family_name: z.string().min(1),
@@ -1957,7 +1957,7 @@ export const createFurnitureRequest = createServerFn({ method: "POST" })
 /** Update furniture request status (admin approve/reject) */
 export const updateFurnitureRequestStatus = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .inputValidator((d) =>
+  .validator((d) =>
     z
       .object({
         id: z.string().uuid(),
@@ -1978,7 +1978,7 @@ export const updateFurnitureRequestStatus = createServerFn({ method: "POST" })
 /** Delete furniture request */
 export const deleteFurnitureRequest = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .inputValidator((d) => z.object({ id: z.string().uuid() }).parse(d))
+  .validator((d) => z.object({ id: z.string().uuid() }).parse(d))
   .handler(async ({ data, context }) => {
     const { error } = await context.supabase.from("furniture_requests").delete().eq("id", data.id);
     if (error) throw new Error(error.message);
@@ -2005,7 +2005,7 @@ export const getSuppliesInventory = createServerFn({ method: "GET" })
 /** Add supplies inventory item */
 export const addSupplyItem = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .inputValidator((d) =>
+  .validator((d) =>
     z
       .object({
         category: suppliesCategorySchema,
@@ -2030,7 +2030,7 @@ export const addSupplyItem = createServerFn({ method: "POST" })
 /** Update supplies inventory item */
 export const updateSupplyItem = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .inputValidator((d) =>
+  .validator((d) =>
     z
       .object({
         id: z.string().uuid(),
@@ -2053,7 +2053,7 @@ export const updateSupplyItem = createServerFn({ method: "POST" })
 /** Delete supplies inventory item */
 export const deleteSupplyItem = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .inputValidator((d) => z.object({ id: z.string().uuid() }).parse(d))
+  .validator((d) => z.object({ id: z.string().uuid() }).parse(d))
   .handler(async ({ data, context }) => {
     requirePermission(context, "manage:supplies");
     const { error } = await context.supabase.from("supplies_inventory").delete().eq("id", data.id);
@@ -2081,7 +2081,7 @@ export const getPharmacyInventory = createServerFn({ method: "GET" })
 /** Add pharmacy inventory item */
 export const addPharmacyInventoryItem = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .inputValidator((d) =>
+  .validator((d) =>
     z
       .object({
         disease_category: z.string().min(1),
@@ -2107,7 +2107,7 @@ export const addPharmacyInventoryItem = createServerFn({ method: "POST" })
 /** Update pharmacy inventory item */
 export const updatePharmacyInventoryItem = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .inputValidator((d) =>
+  .validator((d) =>
     z
       .object({
         id: z.string().uuid(),
@@ -2134,7 +2134,7 @@ export const updatePharmacyInventoryItem = createServerFn({ method: "POST" })
 /** Delete pharmacy inventory item */
 export const deletePharmacyInventoryItem = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .inputValidator((d) => z.object({ id: z.string().uuid() }).parse(d))
+  .validator((d) => z.object({ id: z.string().uuid() }).parse(d))
   .handler(async ({ data, context }) => {
     requirePermission(context, "manage:pharmacy");
     const { error } = await context.supabase
@@ -2173,7 +2173,7 @@ export const getMyPharmacyRequests = createServerFn({ method: "GET" })
 /** Create a pharmacy request */
 export const createPharmacyRequest = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .inputValidator((d) =>
+  .validator((d) =>
     z
       .object({
         family_name: z.string().min(1),
@@ -2201,7 +2201,7 @@ export const createPharmacyRequest = createServerFn({ method: "POST" })
 /** Update pharmacy request status (admin approve/reject) */
 export const updatePharmacyRequestStatus = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .inputValidator((d) =>
+  .validator((d) =>
     z
       .object({
         id: z.string().uuid(),
@@ -2222,7 +2222,7 @@ export const updatePharmacyRequestStatus = createServerFn({ method: "POST" })
 /** Delete pharmacy request */
 export const deletePharmacyRequest = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .inputValidator((d) => z.object({ id: z.string().uuid() }).parse(d))
+  .validator((d) => z.object({ id: z.string().uuid() }).parse(d))
   .handler(async ({ data, context }) => {
     requirePermission(context, "manage:pharmacy");
     const { error } = await context.supabase
@@ -2236,7 +2236,7 @@ export const deletePharmacyRequest = createServerFn({ method: "POST" })
 /** Get beneficiaries by saint_family for pharmacy request form */
 export const getPharmacyBeneficiaries = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
-  .inputValidator((d) => z.object({ family_name: z.string().min(1) }).parse(d))
+  .validator((d) => z.object({ family_name: z.string().min(1) }).parse(d))
   .handler(async ({ data, context }) => {
     requireVisibleFamily(context, data.family_name);
     const { data: rows, error } = await context.supabase
