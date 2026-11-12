@@ -59,7 +59,12 @@ type BlessingRecord = {
   distribution_date: string;
 };
 
-const BLESSING_BLOCKED_ROLES = ["BRIDE_AND_MEDICAL_AIDS_MANAGER", "SUPPLY_WAREHOUSE_MANAGER"];
+const BLESSING_BLOCKED_ROLES = [
+  "BRIDE_AND_MEDICAL_AIDS_MANAGER",
+  "SUPPLY_WAREHOUSE_MANAGER",
+  "CLOTHES_MANAGER",
+  "TREASURER",
+];
 
 function BlessingDistribution() {
   const { role, isAdmin } = useAuth();

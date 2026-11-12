@@ -10,7 +10,9 @@ export type Role =
   | "BLESSING_DISTRIBUTOR"
   | "SUPPLY_WAREHOUSE_MANAGER"
   | "FURNITURE_WAREHOUSE_MANAGER"
-  | "PHARMACY_WAREHOUSE_MANAGER";
+  | "PHARMACY_WAREHOUSE_MANAGER"
+  | "CLOTHES_MANAGER"
+  | "TREASURER";
 
 /**
  * STRICT role → family scope mapping (single source of truth).
@@ -68,6 +70,8 @@ export const ROLE_LABEL: Record<Role, { ar: string; en: string }> = {
   SUPPLY_WAREHOUSE_MANAGER: { ar: "مخزن التموين", en: "Supply Warehouse Manager" },
   FURNITURE_WAREHOUSE_MANAGER: { ar: "مخزن الأثاث", en: "Furniture Warehouse Manager" },
   PHARMACY_WAREHOUSE_MANAGER: { ar: "مخزن الصيدلية", en: "Pharmacy Warehouse Manager" },
+  CLOTHES_MANAGER: { ar: "مسؤول ملابس الأعياد والمدارس", en: "Holiday & School Clothes Manager" },
+  TREASURER: { ar: "خادم الصندوق / مسؤول الخزنة", en: "Treasurer & Fund Manager" },
 };
 
 export type Permission =
@@ -78,6 +82,8 @@ export type Permission =
   | "view:blessing-distribution"
   | "view:furniture"
   | "view:clothes"
+  | "view:clothes-manager"
+  | "view:treasury"
   | "view:inventory"
   | "view:audit"
   | "add:beneficiary"
@@ -86,42 +92,52 @@ export type Permission =
   | "manage:inventory"
   | "manage:pharmacy"
   | "manage:furniture"
-  | "manage:supplies";
+  | "manage:supplies"
+  | "manage:treasury";
 
 const ROLE_PERMISSIONS: Record<Role, Permission[]> = {
   SUPER_ADMIN: [
     "view:dashboard", "view:beneficiary", "view:sensitive",
     "view:pharmacy", "view:blessing-distribution", "view:furniture", "view:clothes",
+    "view:clothes-manager", "view:treasury",
     "view:inventory", "view:audit", "add:beneficiary", "edit:beneficiary",
     "delete:beneficiary", "manage:inventory", "manage:pharmacy", "manage:furniture", "manage:supplies",
+    "manage:treasury",
   ],
   ADMIN: [
     "view:dashboard", "view:beneficiary",
     "view:pharmacy", "view:blessing-distribution", "view:furniture", "view:clothes",
+    "view:clothes-manager", "view:treasury",
     "view:inventory", "view:audit", "add:beneficiary", "edit:beneficiary",
     "delete:beneficiary", "manage:inventory", "manage:pharmacy", "manage:furniture", "manage:supplies",
+    "manage:treasury",
   ],
   BRIDE_AND_MEDICAL_AIDS_MANAGER: [
     "view:beneficiary", "view:sensitive",
   ],
   ST_MATTHEW: [
     "view:dashboard", "view:beneficiary", "view:blessing-distribution", "view:furniture", "view:clothes", "view:pharmacy",
+    "view:treasury",
     "add:beneficiary", "edit:beneficiary",
   ],
   ST_MARK: [
     "view:dashboard", "view:beneficiary", "view:blessing-distribution", "view:furniture", "view:clothes", "view:pharmacy",
+    "view:treasury",
     "add:beneficiary", "edit:beneficiary",
   ],
   ST_JOHN: [
     "view:dashboard", "view:beneficiary", "view:blessing-distribution", "view:furniture", "view:clothes", "view:pharmacy",
+    "view:treasury",
     "add:beneficiary", "edit:beneficiary",
   ],
   ST_LUKE: [
     "view:dashboard", "view:beneficiary", "view:blessing-distribution", "view:furniture", "view:clothes", "view:pharmacy",
+    "view:treasury",
     "add:beneficiary", "edit:beneficiary",
   ],
   ST_HIDDEN_FAMILIES: [
     "view:dashboard", "view:beneficiary", "view:blessing-distribution", "view:furniture", "view:clothes", "view:pharmacy",
+    "view:treasury",
     "add:beneficiary", "edit:beneficiary",
   ],
   BLESSING_DISTRIBUTOR: [
@@ -135,6 +151,17 @@ const ROLE_PERMISSIONS: Record<Role, Permission[]> = {
   ],
   PHARMACY_WAREHOUSE_MANAGER: [
     "view:pharmacy", "manage:pharmacy",
+  ],
+  CLOTHES_MANAGER: [
+    // Exclusive role: this manager can only see aggregated clothes data.
+    // No dashboard, treasury, beneficiary, or other module permissions.
+    "view:clothes-manager",
+  ],
+  TREASURER: [
+    // Exclusive role: financial operations, treasury funds and transaction logs
+    // only. No beneficiary, inventory, clothes, pharmacy, or audit access.
+    "view:treasury",
+    "manage:treasury",
   ],
 };
 
@@ -154,6 +181,22 @@ export function isFamilyServant(role: Role | null): boolean {
   return (FAMILY_SERVANT_ROLES as readonly Role[]).includes(role);
 }
 
+/** Exclusive financial role helper. */
+export function isTreasurer(role: Role | null): boolean {
+  return role === "TREASURER";
+}
+
+/**
+ * Landing route for exclusive roles. The treasurer must never land on the
+ * general dashboard (beneficiary/treasury mix) and the clothes manager must
+ * never land on the financial dashboard.
+ */
+export function getHomeRouteForRole(role: Role | null): string {
+  if (role === "CLOTHES_MANAGER") return "/clothes-manager";
+  if (role === "TREASURER") return "/treasury";
+  return "/";
+}
+
 /** Canonical saint-family values stored in `individuals.saint_family`. */
 export const SAINT_FAMILY_VALUES = ["متى", "مرقس", "لوقا", "يوحنا", "أسر مستترة"] as const;
 
@@ -167,15 +210,25 @@ export const SAINT_FAMILY_VALUES = ["متى", "مرقس", "لوقا", "يوحن�
 export function getVisibleSaintFamilyValues(role: Role | null): readonly string[] {
   if (!role) return [];
   if (role === "SUPER_ADMIN" || role === "ADMIN") return SAINT_FAMILY_VALUES;
+  // The treasurer manages the funds of the four saint families AND the hidden
+  // families, so all canonical values are visible for recording/filtering.
+  if (role === "TREASURER") return SAINT_FAMILY_VALUES;
   if (role === "ST_HIDDEN_FAMILIES") return ["أسر مستترة"];
   if (["ST_MATTHEW", "ST_MARK", "ST_JOHN", "ST_LUKE"].includes(role)) {
     const family = FAMILY_BY_ROLE[role];
     return family ? [family] : [];
   }
+  // The clothes manager aggregates factory orders across every family,
+  // including Hidden Families, but has no access to any other module.
+  if (role === "CLOTHES_MANAGER") return SAINT_FAMILY_VALUES;
   return SAINT_FAMILY_VALUES.filter((f) => f !== "أسر مستترة");
 }
 
 export function resolvePrimaryRole(dbRoles: string[]): Role | null {
+  // TREASURER is an exclusive role. Resolve it first so a conflicting legacy
+  // assignment can never inherit non-financial permissions; the database
+  // trigger `enforce_treasurer_exclusivity` prevents new conflicts.
+  if (dbRoles.includes("TREASURER")) return "TREASURER";
   if (dbRoles.includes("SUPER_ADMIN")) return "SUPER_ADMIN";
   if (dbRoles.includes("ADMIN")) return "ADMIN";
   if (dbRoles.includes("BRIDE_AND_MEDICAL_AIDS_MANAGER")) return "BRIDE_AND_MEDICAL_AIDS_MANAGER";
@@ -188,5 +241,6 @@ export function resolvePrimaryRole(dbRoles: string[]): Role | null {
   if (dbRoles.includes("SUPPLY_WAREHOUSE_MANAGER")) return "SUPPLY_WAREHOUSE_MANAGER";
   if (dbRoles.includes("FURNITURE_WAREHOUSE_MANAGER")) return "FURNITURE_WAREHOUSE_MANAGER";
   if (dbRoles.includes("PHARMACY_WAREHOUSE_MANAGER")) return "PHARMACY_WAREHOUSE_MANAGER";
+  if (dbRoles.includes("CLOTHES_MANAGER")) return "CLOTHES_MANAGER";
   return null;
 }

@@ -351,6 +351,48 @@ export interface Database {
         };
         Relationships: [];
       };
+      treasury_transactions: {
+        Row: {
+          id: string;
+          saint_family: string;
+          transaction_date: string;
+          transaction_type: string;
+          category: string;
+          amount: number;
+          description: string | null;
+          reference: string | null;
+          created_by: string | null;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          saint_family: string;
+          transaction_date?: string;
+          transaction_type: string;
+          category: string;
+          amount: number;
+          description?: string | null;
+          reference?: string | null;
+          created_by?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          saint_family?: string;
+          transaction_date?: string;
+          transaction_type?: string;
+          category?: string;
+          amount?: number;
+          description?: string | null;
+          reference?: string | null;
+          created_by?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Relationships: [];
+      };
       inventory: {
         Row: {
           id: string;
@@ -359,8 +401,7 @@ export interface Database {
           updated_by: string | null;
           created_at: string;
           updated_at: string;
-        };
-        Insert: {
+        };        Insert: {
           id?: string;
           weekly_total: number;
           details?: string | null;

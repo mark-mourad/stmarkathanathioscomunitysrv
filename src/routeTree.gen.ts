@@ -9,26 +9,28 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
-import { Route as AuthRouteImport } from './routes/auth'
 import { Route as AuthenticatedRouteRouteImport } from './routes/_authenticated/route'
+import { Route as AuthRouteImport } from './routes/auth'
 import { Route as AuthenticatedIndexRouteImport } from './routes/_authenticated/index'
-import { Route as AuthenticatedSearchRouteImport } from './routes/_authenticated/search'
-import { Route as AuthenticatedPharmacyRouteImport } from './routes/_authenticated/pharmacy'
-import { Route as AuthenticatedInventoryRouteImport } from './routes/_authenticated/inventory'
-import { Route as AuthenticatedFurnitureRouteImport } from './routes/_authenticated/furniture'
-import { Route as AuthenticatedClothesRouteImport } from './routes/_authenticated/clothes'
-import { Route as AuthenticatedBlessingDistributionRouteImport } from './routes/_authenticated/blessing-distribution'
-import { Route as AuthenticatedAuditRouteImport } from './routes/_authenticated/audit'
 import { Route as AuthenticatedAddRouteImport } from './routes/_authenticated/add'
+import { Route as AuthenticatedAuditRouteImport } from './routes/_authenticated/audit'
+import { Route as AuthenticatedBlessingDistributionRouteImport } from './routes/_authenticated/blessing-distribution'
+import { Route as AuthenticatedClothesRouteImport } from './routes/_authenticated/clothes'
+import { Route as AuthenticatedClothesManagerRouteImport } from './routes/_authenticated/clothes-manager'
+import { Route as AuthenticatedFurnitureRouteImport } from './routes/_authenticated/furniture'
+import { Route as AuthenticatedInventoryRouteImport } from './routes/_authenticated/inventory'
+import { Route as AuthenticatedPharmacyRouteImport } from './routes/_authenticated/pharmacy'
+import { Route as AuthenticatedSearchRouteImport } from './routes/_authenticated/search'
+import { Route as AuthenticatedTreasuryRouteImport } from './routes/_authenticated/treasury'
 import { Route as AuthenticatedIndividualIdRouteImport } from './routes/_authenticated/individual.$id'
 
+const AuthenticatedRouteRoute = AuthenticatedRouteRouteImport.update({
+  id: '/_authenticated',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const AuthRoute = AuthRouteImport.update({
   id: '/auth',
   path: '/auth',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const AuthenticatedRouteRoute = AuthenticatedRouteRouteImport.update({
-  id: '/_authenticated',
   getParentRoute: () => rootRouteImport,
 } as any)
 const AuthenticatedIndexRoute = AuthenticatedIndexRouteImport.update({
@@ -36,29 +38,14 @@ const AuthenticatedIndexRoute = AuthenticatedIndexRouteImport.update({
   path: '/',
   getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
-const AuthenticatedSearchRoute = AuthenticatedSearchRouteImport.update({
-  id: '/search',
-  path: '/search',
+const AuthenticatedAddRoute = AuthenticatedAddRouteImport.update({
+  id: '/add',
+  path: '/add',
   getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
-const AuthenticatedPharmacyRoute = AuthenticatedPharmacyRouteImport.update({
-  id: '/pharmacy',
-  path: '/pharmacy',
-  getParentRoute: () => AuthenticatedRouteRoute,
-} as any)
-const AuthenticatedInventoryRoute = AuthenticatedInventoryRouteImport.update({
-  id: '/inventory',
-  path: '/inventory',
-  getParentRoute: () => AuthenticatedRouteRoute,
-} as any)
-const AuthenticatedFurnitureRoute = AuthenticatedFurnitureRouteImport.update({
-  id: '/furniture',
-  path: '/furniture',
-  getParentRoute: () => AuthenticatedRouteRoute,
-} as any)
-const AuthenticatedClothesRoute = AuthenticatedClothesRouteImport.update({
-  id: '/clothes',
-  path: '/clothes',
+const AuthenticatedAuditRoute = AuthenticatedAuditRouteImport.update({
+  id: '/audit',
+  path: '/audit',
   getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
 const AuthenticatedBlessingDistributionRoute =
@@ -67,14 +54,40 @@ const AuthenticatedBlessingDistributionRoute =
     path: '/blessing-distribution',
     getParentRoute: () => AuthenticatedRouteRoute,
   } as any)
-const AuthenticatedAuditRoute = AuthenticatedAuditRouteImport.update({
-  id: '/audit',
-  path: '/audit',
+const AuthenticatedClothesRoute = AuthenticatedClothesRouteImport.update({
+  id: '/clothes',
+  path: '/clothes',
   getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
-const AuthenticatedAddRoute = AuthenticatedAddRouteImport.update({
-  id: '/add',
-  path: '/add',
+const AuthenticatedClothesManagerRoute =
+  AuthenticatedClothesManagerRouteImport.update({
+    id: '/clothes-manager',
+    path: '/clothes-manager',
+    getParentRoute: () => AuthenticatedRouteRoute,
+  } as any)
+const AuthenticatedFurnitureRoute = AuthenticatedFurnitureRouteImport.update({
+  id: '/furniture',
+  path: '/furniture',
+  getParentRoute: () => AuthenticatedRouteRoute,
+} as any)
+const AuthenticatedInventoryRoute = AuthenticatedInventoryRouteImport.update({
+  id: '/inventory',
+  path: '/inventory',
+  getParentRoute: () => AuthenticatedRouteRoute,
+} as any)
+const AuthenticatedPharmacyRoute = AuthenticatedPharmacyRouteImport.update({
+  id: '/pharmacy',
+  path: '/pharmacy',
+  getParentRoute: () => AuthenticatedRouteRoute,
+} as any)
+const AuthenticatedSearchRoute = AuthenticatedSearchRouteImport.update({
+  id: '/search',
+  path: '/search',
+  getParentRoute: () => AuthenticatedRouteRoute,
+} as any)
+const AuthenticatedTreasuryRoute = AuthenticatedTreasuryRouteImport.update({
+  id: '/treasury',
+  path: '/treasury',
   getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
 const AuthenticatedIndividualIdRoute =
@@ -91,10 +104,12 @@ export interface FileRoutesByFullPath {
   '/audit': typeof AuthenticatedAuditRoute
   '/blessing-distribution': typeof AuthenticatedBlessingDistributionRoute
   '/clothes': typeof AuthenticatedClothesRoute
+  '/clothes-manager': typeof AuthenticatedClothesManagerRoute
   '/furniture': typeof AuthenticatedFurnitureRoute
   '/inventory': typeof AuthenticatedInventoryRoute
   '/pharmacy': typeof AuthenticatedPharmacyRoute
   '/search': typeof AuthenticatedSearchRoute
+  '/treasury': typeof AuthenticatedTreasuryRoute
   '/individual/$id': typeof AuthenticatedIndividualIdRoute
 }
 export interface FileRoutesByTo {
@@ -103,10 +118,12 @@ export interface FileRoutesByTo {
   '/audit': typeof AuthenticatedAuditRoute
   '/blessing-distribution': typeof AuthenticatedBlessingDistributionRoute
   '/clothes': typeof AuthenticatedClothesRoute
+  '/clothes-manager': typeof AuthenticatedClothesManagerRoute
   '/furniture': typeof AuthenticatedFurnitureRoute
   '/inventory': typeof AuthenticatedInventoryRoute
   '/pharmacy': typeof AuthenticatedPharmacyRoute
   '/search': typeof AuthenticatedSearchRoute
+  '/treasury': typeof AuthenticatedTreasuryRoute
   '/': typeof AuthenticatedIndexRoute
   '/individual/$id': typeof AuthenticatedIndividualIdRoute
 }
@@ -118,10 +135,12 @@ export interface FileRoutesById {
   '/_authenticated/audit': typeof AuthenticatedAuditRoute
   '/_authenticated/blessing-distribution': typeof AuthenticatedBlessingDistributionRoute
   '/_authenticated/clothes': typeof AuthenticatedClothesRoute
+  '/_authenticated/clothes-manager': typeof AuthenticatedClothesManagerRoute
   '/_authenticated/furniture': typeof AuthenticatedFurnitureRoute
   '/_authenticated/inventory': typeof AuthenticatedInventoryRoute
   '/_authenticated/pharmacy': typeof AuthenticatedPharmacyRoute
   '/_authenticated/search': typeof AuthenticatedSearchRoute
+  '/_authenticated/treasury': typeof AuthenticatedTreasuryRoute
   '/_authenticated/': typeof AuthenticatedIndexRoute
   '/_authenticated/individual/$id': typeof AuthenticatedIndividualIdRoute
 }
@@ -134,10 +153,12 @@ export interface FileRouteTypes {
     | '/audit'
     | '/blessing-distribution'
     | '/clothes'
+    | '/clothes-manager'
     | '/furniture'
     | '/inventory'
     | '/pharmacy'
     | '/search'
+    | '/treasury'
     | '/individual/$id'
   fileRoutesByTo: FileRoutesByTo
   to:
@@ -146,10 +167,12 @@ export interface FileRouteTypes {
     | '/audit'
     | '/blessing-distribution'
     | '/clothes'
+    | '/clothes-manager'
     | '/furniture'
     | '/inventory'
     | '/pharmacy'
     | '/search'
+    | '/treasury'
     | '/'
     | '/individual/$id'
   id:
@@ -160,10 +183,12 @@ export interface FileRouteTypes {
     | '/_authenticated/audit'
     | '/_authenticated/blessing-distribution'
     | '/_authenticated/clothes'
+    | '/_authenticated/clothes-manager'
     | '/_authenticated/furniture'
     | '/_authenticated/inventory'
     | '/_authenticated/pharmacy'
     | '/_authenticated/search'
+    | '/_authenticated/treasury'
     | '/_authenticated/'
     | '/_authenticated/individual/$id'
   fileRoutesById: FileRoutesById
@@ -175,18 +200,18 @@ export interface RootRouteChildren {
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
-    '/auth': {
-      id: '/auth'
-      path: '/auth'
-      fullPath: '/auth'
-      preLoaderRoute: typeof AuthRouteImport
-      parentRoute: typeof rootRouteImport
-    }
     '/_authenticated': {
       id: '/_authenticated'
       path: ''
       fullPath: '/'
       preLoaderRoute: typeof AuthenticatedRouteRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/auth': {
+      id: '/auth'
+      path: '/auth'
+      fullPath: '/auth'
+      preLoaderRoute: typeof AuthRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/_authenticated/': {
@@ -196,46 +221,11 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedIndexRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
-    '/_authenticated/search': {
-      id: '/_authenticated/search'
-      path: '/search'
-      fullPath: '/search'
-      preLoaderRoute: typeof AuthenticatedSearchRouteImport
-      parentRoute: typeof AuthenticatedRouteRoute
-    }
-    '/_authenticated/pharmacy': {
-      id: '/_authenticated/pharmacy'
-      path: '/pharmacy'
-      fullPath: '/pharmacy'
-      preLoaderRoute: typeof AuthenticatedPharmacyRouteImport
-      parentRoute: typeof AuthenticatedRouteRoute
-    }
-    '/_authenticated/inventory': {
-      id: '/_authenticated/inventory'
-      path: '/inventory'
-      fullPath: '/inventory'
-      preLoaderRoute: typeof AuthenticatedInventoryRouteImport
-      parentRoute: typeof AuthenticatedRouteRoute
-    }
-    '/_authenticated/furniture': {
-      id: '/_authenticated/furniture'
-      path: '/furniture'
-      fullPath: '/furniture'
-      preLoaderRoute: typeof AuthenticatedFurnitureRouteImport
-      parentRoute: typeof AuthenticatedRouteRoute
-    }
-    '/_authenticated/clothes': {
-      id: '/_authenticated/clothes'
-      path: '/clothes'
-      fullPath: '/clothes'
-      preLoaderRoute: typeof AuthenticatedClothesRouteImport
-      parentRoute: typeof AuthenticatedRouteRoute
-    }
-    '/_authenticated/blessing-distribution': {
-      id: '/_authenticated/blessing-distribution'
-      path: '/blessing-distribution'
-      fullPath: '/blessing-distribution'
-      preLoaderRoute: typeof AuthenticatedBlessingDistributionRouteImport
+    '/_authenticated/add': {
+      id: '/_authenticated/add'
+      path: '/add'
+      fullPath: '/add'
+      preLoaderRoute: typeof AuthenticatedAddRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
     '/_authenticated/audit': {
@@ -245,11 +235,60 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedAuditRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
-    '/_authenticated/add': {
-      id: '/_authenticated/add'
-      path: '/add'
-      fullPath: '/add'
-      preLoaderRoute: typeof AuthenticatedAddRouteImport
+    '/_authenticated/blessing-distribution': {
+      id: '/_authenticated/blessing-distribution'
+      path: '/blessing-distribution'
+      fullPath: '/blessing-distribution'
+      preLoaderRoute: typeof AuthenticatedBlessingDistributionRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/clothes': {
+      id: '/_authenticated/clothes'
+      path: '/clothes'
+      fullPath: '/clothes'
+      preLoaderRoute: typeof AuthenticatedClothesRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/clothes-manager': {
+      id: '/_authenticated/clothes-manager'
+      path: '/clothes-manager'
+      fullPath: '/clothes-manager'
+      preLoaderRoute: typeof AuthenticatedClothesManagerRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/furniture': {
+      id: '/_authenticated/furniture'
+      path: '/furniture'
+      fullPath: '/furniture'
+      preLoaderRoute: typeof AuthenticatedFurnitureRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/inventory': {
+      id: '/_authenticated/inventory'
+      path: '/inventory'
+      fullPath: '/inventory'
+      preLoaderRoute: typeof AuthenticatedInventoryRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/pharmacy': {
+      id: '/_authenticated/pharmacy'
+      path: '/pharmacy'
+      fullPath: '/pharmacy'
+      preLoaderRoute: typeof AuthenticatedPharmacyRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/search': {
+      id: '/_authenticated/search'
+      path: '/search'
+      fullPath: '/search'
+      preLoaderRoute: typeof AuthenticatedSearchRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/treasury': {
+      id: '/_authenticated/treasury'
+      path: '/treasury'
+      fullPath: '/treasury'
+      preLoaderRoute: typeof AuthenticatedTreasuryRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
     '/_authenticated/individual/$id': {
@@ -267,10 +306,12 @@ interface AuthenticatedRouteRouteChildren {
   AuthenticatedAuditRoute: typeof AuthenticatedAuditRoute
   AuthenticatedBlessingDistributionRoute: typeof AuthenticatedBlessingDistributionRoute
   AuthenticatedClothesRoute: typeof AuthenticatedClothesRoute
+  AuthenticatedClothesManagerRoute: typeof AuthenticatedClothesManagerRoute
   AuthenticatedFurnitureRoute: typeof AuthenticatedFurnitureRoute
   AuthenticatedInventoryRoute: typeof AuthenticatedInventoryRoute
   AuthenticatedPharmacyRoute: typeof AuthenticatedPharmacyRoute
   AuthenticatedSearchRoute: typeof AuthenticatedSearchRoute
+  AuthenticatedTreasuryRoute: typeof AuthenticatedTreasuryRoute
   AuthenticatedIndexRoute: typeof AuthenticatedIndexRoute
   AuthenticatedIndividualIdRoute: typeof AuthenticatedIndividualIdRoute
 }
@@ -281,10 +322,12 @@ const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedBlessingDistributionRoute:
     AuthenticatedBlessingDistributionRoute,
   AuthenticatedClothesRoute: AuthenticatedClothesRoute,
+  AuthenticatedClothesManagerRoute: AuthenticatedClothesManagerRoute,
   AuthenticatedFurnitureRoute: AuthenticatedFurnitureRoute,
   AuthenticatedInventoryRoute: AuthenticatedInventoryRoute,
   AuthenticatedPharmacyRoute: AuthenticatedPharmacyRoute,
   AuthenticatedSearchRoute: AuthenticatedSearchRoute,
+  AuthenticatedTreasuryRoute: AuthenticatedTreasuryRoute,
   AuthenticatedIndexRoute: AuthenticatedIndexRoute,
   AuthenticatedIndividualIdRoute: AuthenticatedIndividualIdRoute,
 }

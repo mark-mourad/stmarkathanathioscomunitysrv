@@ -122,6 +122,8 @@ function IndividualPage() {
     "FURNITURE_WAREHOUSE_MANAGER",
     "PHARMACY_WAREHOUSE_MANAGER",
     "BLESSING_DISTRIBUTOR",
+    "CLOTHES_MANAGER",
+    "TREASURER",
   ];
   useEffect(() => {
     if (individualRestrictedRoles.includes(role as any)) {

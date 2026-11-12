@@ -90,7 +90,7 @@ function FurniturePage() {
   const { can, role, isAdmin } = useAuth();
   const router = useRouter();
   const canManageFurniture = role === "FURNITURE_WAREHOUSE_MANAGER" || isAdmin;
-  const furnitureRestricted = ["BLESSING_DISTRIBUTOR"];
+  const furnitureRestricted = ["BLESSING_DISTRIBUTOR", "CLOTHES_MANAGER", "TREASURER"];
 
   useEffect(() => {
     if (furnitureRestricted.includes(role as any)) {

@@ -11,6 +11,14 @@ import {
   getVisibleSaintFamilyValues,
   getFamilyScopeForRole,
 } from "@/lib/permissions";
+import {
+  TREASURY_FAMILY_VALUES,
+  TREASURY_FAMILIES,
+  emptyTreasurySummary,
+  type TreasuryFamilySummary,
+  type TreasurySummary,
+  type TreasuryTransaction,
+} from "@/lib/treasury";
 
 // ── RBAC helpers (server-side) ─────────────────────────────
 
@@ -21,6 +29,16 @@ function getServerRole(context: { dbRoles?: string[] }): Role | null {
 function requirePermission(context: { dbRoles?: string[] }, permission: Permission): void {
   const role = getServerRole(context);
   if (!hasPermission(role, permission)) {
+    throw new Error("غير مصرح لك بهذا الإجراء");
+  }
+}
+
+function requireAnyPermission(
+  context: { dbRoles?: string[] },
+  permissions: Permission[],
+): void {
+  const role = getServerRole(context);
+  if (!permissions.some((permission) => hasPermission(role, permission))) {
     throw new Error("غير مصرح لك بهذا الإجراء");
   }
 }
@@ -83,6 +101,9 @@ export const saintFamilySchema = z.enum(SAINT_FAMILY_VALUES);
  */
 function isSectorAllowedForRole(sector: string, role: Role | null): boolean {
   if (role === "SUPER_ADMIN" || role === "ADMIN") return true;
+  // The treasurer manages the funds of the four saint families and the hidden
+  // families, so every financial chart sector is editable.
+  if (role === "TREASURER") return true;
   const scope = getFamilyScopeForRole(role);
   if (!scope) return false;
   return sector === scope.sector;
@@ -178,7 +199,7 @@ export const updateMetric = createServerFn({ method: "POST" })
       .parse(d),
   )
   .handler(async ({ data, context }) => {
-    requirePermission(context, "view:dashboard");
+    requireAnyPermission(context, ["view:dashboard", "manage:treasury"]);
     const role = getServerRole(context);
 
     // Financial mutation lockdown: load the target row and refuse any update
@@ -219,11 +240,12 @@ export const saveHiddenFamiliesMetric = createServerFn({ method: "POST" })
       .parse(d),
   )
   .handler(async ({ data, context }) => {
-    requirePermission(context, "view:dashboard");
+    requireAnyPermission(context, ["view:dashboard", "manage:treasury"]);
     const role = getServerRole(context);
-    const isAdmin = role === "SUPER_ADMIN" || role === "ADMIN";
-    // Hidden Families metric may only be mutated by admins or the Hidden
-    // Families servant — never by a standard family servant.
+    const isAdmin =
+      role === "SUPER_ADMIN" || role === "ADMIN" || role === "TREASURER";
+    // Hidden Families metric may only be mutated by admins, the treasurer, or
+    // the Hidden Families servant — never by a standard family servant.
     if (!isAdmin && role !== "ST_HIDDEN_FAMILIES") {
       throw new Error("غير مصرح لك بتعديل الأسر المستترة");
     }
@@ -495,6 +517,7 @@ export const getExportData = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
   .validator((d) => z.object({ saint_family: saintFamilySchema.optional() }).parse(d ?? {}))
   .handler(async ({ data, context }) => {
+    requirePermission(context, "view:beneficiary");
     const assignedFamily = getServerAssignedFamily(context);
     const saintFamily = assignedFamily ?? data.saint_family;
 
@@ -1694,9 +1717,84 @@ const clothesRequestSchema = z.object({
   notes: z.string().optional().nullable(),
 });
 
+const CLOTHES_CATEGORY_AR: Record<string, string> = {
+  holiday: "لبس العيد",
+  school: "لبس المدرسة",
+};
+
+function duplicateClothesMessage(requestCategory: string): string {
+  const label = CLOTHES_CATEGORY_AR[requestCategory] ?? "ملابس";
+  return `هذا الابن/الابنة مسجل بالفعل في طلب ${label}. استخدم زر التعديل لتحديث الطلب الحالي بدلًا من إضافة طلب جديد.`;
+}
+
+/**
+ * The source of truth for the duplicate rule: one family_members.id may have
+ * at most one request per category. The DB also has a partial unique index as a
+ * final race-condition guard; this friendly check returns a clear Arabic error.
+ */
+async function assertClothesChildRequestUnique(
+  context: { supabase: any },
+  familyMemberId: string,
+  requestCategory: "holiday" | "school",
+  excludeId?: string,
+) {
+  let query = context.supabase
+    .from("clothes_requests")
+    .select("id")
+    .eq("family_member_id", familyMemberId)
+    .eq("request_category", requestCategory)
+    .limit(1);
+
+  if (excludeId) query = query.neq("id", excludeId);
+
+  const { data, error } = await query;
+  if (error) throw new Error(error.message);
+  if (data && data.length > 0) {
+    throw new Error(duplicateClothesMessage(requestCategory));
+  }
+}
+
+/**
+ * Resolve the selected child from the database instead of trusting the client.
+ * This guarantees the request is attached to the correct parent + family and
+ * prevents cross-family writes through a forged payload.
+ */
+async function resolveClothesChild(
+  context: { supabase: any },
+  familyMemberId: string | null | undefined,
+) {
+  if (!familyMemberId) {
+    throw new Error("يرجى اختيار الابن/الابنة أولًا");
+  }
+
+  const { data: member, error: memberError } = await context.supabase
+    .from("family_members")
+    .select("id, full_name, individual_id, relation")
+    .eq("id", familyMemberId)
+    .maybeSingle();
+
+  if (memberError) throw new Error(memberError.message);
+  if (!member) throw new Error("لم يتم العثور على الابن/الابنة");
+  if (!["ابن", "ابنة"].includes(member.relation ?? "")) {
+    throw new Error("لا يمكن تسجيل طلب ملابس إلا للأبناء");
+  }
+
+  const { data: parent, error: parentError } = await context.supabase
+    .from("individuals")
+    .select("id, full_name, saint_family")
+    .eq("id", member.individual_id)
+    .maybeSingle();
+
+  if (parentError) throw new Error(parentError.message);
+  if (!parent) throw new Error("لم يتم العثور على ولي الأمر الخاص بالابن/الابنة");
+
+  return { member, parent };
+}
+
 export const getClothesRequests = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
   .handler(async ({ context }) => {
+    requirePermission(context, "view:clothes");
     const assignedFamily = getServerAssignedFamily(context);
     let query = context.supabase
       .from("clothes_requests")
@@ -1708,7 +1806,7 @@ export const getClothesRequests = createServerFn({ method: "GET" })
       `,
       )
       .order("created_at", { ascending: false })
-      .limit(500);
+      .limit(1000);
     if (assignedFamily) {
       query = query.eq("saint_family", assignedFamily);
     }
@@ -1717,10 +1815,35 @@ export const getClothesRequests = createServerFn({ method: "GET" })
     return data ?? [];
   });
 
+/**
+ * Dedicated, read-only clothes manager dataset. It intentionally returns ALL
+ * families (including Hidden Families) so factory quantities are complete.
+ */
+export const getClothesManagerRequests = createServerFn({ method: "GET" })
+  .middleware([requireSupabaseAuth])
+  .handler(async ({ context }) => {
+    requirePermission(context, "view:clothes-manager");
+    const { data, error } = await context.supabase
+      .from("clothes_requests")
+      .select(
+        `
+        *,
+        individuals(id, full_name, nickname, saint_family),
+        family_members(id, full_name, relation, school_or_job, insurance_number)
+      `,
+      )
+      .order("saint_family", { ascending: true })
+      .order("created_at", { ascending: false })
+      .limit(5000);
+    if (error) throw new Error(error.message);
+    return data ?? [];
+  });
+
 export const getClothesRequestsByFamily = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
   .validator((d) => z.object({ saint_family: z.string().min(1) }).parse(d))
   .handler(async ({ data, context }) => {
+    requirePermission(context, "view:clothes");
     requireVisibleFamily(context, data.saint_family);
     const { data: rows, error } = await context.supabase
       .from("clothes_requests")
@@ -1741,13 +1864,34 @@ export const createClothesRequest = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .validator((d) => clothesRequestSchema.parse(d))
   .handler(async ({ data, context }) => {
+    requirePermission(context, "view:clothes");
     requireVisibleFamily(context, data.saint_family);
+
+    const { member, parent } = await resolveClothesChild(context, data.family_member_id);
+
+    if (parent.saint_family !== data.saint_family) {
+      throw new Error("الأسرة المختارة لا تطابق أسرة الابن/الابنة");
+    }
+    requireVisibleFamily(context, parent.saint_family ?? data.saint_family);
+
+    await assertClothesChildRequestUnique(context, member.id, data.request_category);
+
     const { data: created, error } = await context.supabase
       .from("clothes_requests")
-      .insert({ ...data, created_by: context.userId })
+      .insert({
+        ...data,
+        individual_id: member.individual_id,
+        family_member_id: member.id,
+        saint_family: parent.saint_family,
+        created_by: context.userId,
+      })
       .select("id")
       .single();
-    if (error || !created) throw new Error(error?.message ?? "فشل حفظ طلب الملابس");
+
+    if (error || !created) {
+      if (error?.code === "23505") throw new Error(duplicateClothesMessage(data.request_category));
+      throw new Error(error?.message ?? "فشل حفظ طلب الملابس");
+    }
     return { id: created.id };
   });
 
@@ -1755,10 +1899,43 @@ export const updateClothesRequest = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .validator((d) => clothesRequestSchema.extend({ id: z.string().uuid() }).parse(d))
   .handler(async ({ data, context }) => {
+    requirePermission(context, "view:clothes");
     requireVisibleFamily(context, data.saint_family);
+
+    const { data: existing, error: existingError } = await context.supabase
+      .from("clothes_requests")
+      .select("id, saint_family")
+      .eq("id", data.id)
+      .maybeSingle();
+
+    if (existingError) throw new Error(existingError.message);
+    if (!existing) throw new Error("لم يتم العثور على طلب الملابس");
+    requireVisibleFamily(context, existing.saint_family);
+
+    const { member, parent } = await resolveClothesChild(context, data.family_member_id);
+
+    if (parent.saint_family !== data.saint_family) {
+      throw new Error("الأسرة المختارة لا تطابق أسرة الابن/الابنة");
+    }
+    requireVisibleFamily(context, parent.saint_family ?? data.saint_family);
+
+    await assertClothesChildRequestUnique(context, member.id, data.request_category, data.id);
+
     const { id, ...rest } = data;
-    const { error } = await context.supabase.from("clothes_requests").update(rest).eq("id", id);
-    if (error) throw new Error(error.message);
+    const { error } = await context.supabase
+      .from("clothes_requests")
+      .update({
+        ...rest,
+        individual_id: member.individual_id,
+        family_member_id: member.id,
+        saint_family: parent.saint_family,
+      })
+      .eq("id", id);
+
+    if (error) {
+      if (error.code === "23505") throw new Error(duplicateClothesMessage(data.request_category));
+      throw new Error(error.message);
+    }
     return { id };
   });
 
@@ -1766,6 +1943,18 @@ export const deleteClothesRequest = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .validator((d) => z.object({ id: z.string().uuid() }).parse(d))
   .handler(async ({ data, context }) => {
+    requirePermission(context, "view:clothes");
+
+    const { data: existing, error: existingError } = await context.supabase
+      .from("clothes_requests")
+      .select("id, saint_family")
+      .eq("id", data.id)
+      .maybeSingle();
+
+    if (existingError) throw new Error(existingError.message);
+    if (!existing) throw new Error("لم يتم العثور على طلب الملابس");
+    requireVisibleFamily(context, existing.saint_family);
+
     const { error } = await context.supabase.from("clothes_requests").delete().eq("id", data.id);
     if (error) throw new Error(error.message);
     return { ok: true };
@@ -1776,6 +1965,7 @@ export const getChildrenByFamily = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
   .validator((d) => z.object({ saint_family: z.string().min(1) }).parse(d))
   .handler(async ({ data, context }) => {
+    requirePermission(context, "view:clothes");
     requireVisibleFamily(context, data.saint_family);
     const { data: individuals, error: indErr } = await context.supabase
       .from("individuals")
@@ -1803,6 +1993,101 @@ export const getChildrenByFamily = createServerFn({ method: "GET" })
       parent_name: individualMap.get(fm.individual_id) ?? "",
       individual_id: fm.individual_id,
     }));
+  });
+
+/**
+ * Registration progress for the family-servant dashboard:
+ * "تم تسجيل X من أصل Y أبناء" per category and per visible family.
+ */
+export const getClothesRegistrationProgress = createServerFn({ method: "GET" })
+  .middleware([requireSupabaseAuth])
+  .handler(async ({ context }) => {
+    requirePermission(context, "view:clothes");
+
+    const role = getServerRole(context);
+    const families = [...getVisibleSaintFamilyValues(role)];
+
+    const emptyStat = () => ({
+      totalChildren: 0,
+      holiday: 0,
+      school: 0,
+    });
+
+    const byFamily: Record<string, ReturnType<typeof emptyStat>> = {};
+    families.forEach((family) => {
+      byFamily[family] = emptyStat();
+    });
+
+    if (families.length === 0) {
+      return { byFamily, totals: emptyStat() };
+    }
+
+    const { data: individuals, error: individualsError } = await context.supabase
+      .from("individuals")
+      .select("id, saint_family")
+      .in("saint_family", families);
+    if (individualsError) throw new Error(individualsError.message);
+
+    const familyByIndividual = new Map(
+      (individuals ?? []).map((row) => [row.id, row.saint_family] as const),
+    );
+    const individualIds = (individuals ?? []).map((row) => row.id);
+
+    if (individualIds.length === 0) {
+      return { byFamily, totals: emptyStat() };
+    }
+
+    const { data: familyMembers, error: membersError } = await context.supabase
+      .from("family_members")
+      .select("id, individual_id")
+      .in("individual_id", individualIds)
+      .in("relation", ["ابن", "ابنة"]);
+    if (membersError) throw new Error(membersError.message);
+
+    const familyByMember = new Map<string, string>();
+    for (const member of familyMembers ?? []) {
+      const family = familyByIndividual.get(member.individual_id);
+      if (!family) continue;
+      familyByMember.set(member.id, family);
+      byFamily[family].totalChildren += 1;
+    }
+
+    const { data: requests, error: requestsError } = await context.supabase
+      .from("clothes_requests")
+      .select("family_member_id, request_category, saint_family")
+      .in("saint_family", families);
+    if (requestsError) throw new Error(requestsError.message);
+
+    const holidayMembers: Record<string, Set<string>> = {};
+    const schoolMembers: Record<string, Set<string>> = {};
+    families.forEach((family) => {
+      holidayMembers[family] = new Set<string>();
+      schoolMembers[family] = new Set<string>();
+    });
+
+    for (const request of requests ?? []) {
+      if (!request.family_member_id) continue;
+      const family = familyByMember.get(request.family_member_id);
+      if (!family) continue;
+      if (request.request_category === "holiday") holidayMembers[family].add(request.family_member_id);
+      if (request.request_category === "school") schoolMembers[family].add(request.family_member_id);
+    }
+
+    families.forEach((family) => {
+      byFamily[family].holiday = holidayMembers[family].size;
+      byFamily[family].school = schoolMembers[family].size;
+    });
+
+    const totals = families.reduce(
+      (acc, family) => ({
+        totalChildren: acc.totalChildren + byFamily[family].totalChildren,
+        holiday: acc.holiday + byFamily[family].holiday,
+        school: acc.school + byFamily[family].school,
+      }),
+      emptyStat(),
+    );
+
+    return { byFamily, totals };
   });
 
 // ---- Furniture & Home Appliances (الأجهزة والأثاث) ----
@@ -2250,4 +2535,167 @@ export const getPharmacyBeneficiaries = createServerFn({ method: "GET" })
       full_name: r.full_name,
       display_name: r.nickname ? `${r.full_name} (${r.nickname})` : r.full_name,
     }));
+  });
+
+// ---- Treasury & Fund Manager (الخزنة / صندوق الخدمة) ----
+
+const TREASURY_SELECT_COLUMNS =
+  "id, saint_family, transaction_date, transaction_type, category, amount, description, reference, created_by, created_at, updated_at" as const;
+
+const treasuryTransactionSchema = z.object({
+  saint_family: z.enum(TREASURY_FAMILY_VALUES as [string, ...string[]], {
+    required_error: "برجاء اختيار الأسرة",
+    invalid_type_error: "برجاء اختيار الأسرة بشكل صحيح",
+  }),
+  transaction_date: z
+    .string()
+    .regex(/^\d{4}-\d{2}-\d{2}$/, "برجاء اختيار تاريخ صحيح"),
+  transaction_type: z.enum(["income", "expense"], {
+    required_error: "برجاء اختيار نوع الحركة",
+  }),
+  category: z.string().trim().min(1, "برجاء إدخال التصنيف").max(120),
+  amount: z
+    .number({ required_error: "برجاء إدخال المبلغ" })
+    .positive("المبلغ يجب أن يكون أكبر من صفر")
+    .max(9_999_999_999),
+  description: z.string().trim().max(2000).optional().nullable(),
+  reference: z.string().trim().max(200).optional().nullable(),
+});
+
+function addToTreasurySummary(summary: TreasurySummary, row: TreasuryTransaction) {
+  const amount = Number(row.amount ?? 0);
+  summary.count += 1;
+  if (row.transaction_type === "income") summary.income += amount;
+  else summary.expense += amount;
+}
+
+/** Financial dashboard for the treasurer, admins, and read-only family servants. */
+export const getTreasuryDashboard = createServerFn({ method: "GET" })
+  .middleware([requireSupabaseAuth])
+  .handler(async ({ context }) => {
+    requirePermission(context, "view:treasury");
+    const role = getServerRole(context);
+    const isAdmin = role === "SUPER_ADMIN" || role === "ADMIN";
+    const scope = getFamilyScopeForRole(role);
+    const saintFamily = scope?.saintFamily ?? null;
+
+    const { data: allMetrics, error: metricsError } = await context.supabase
+      .from("dashboard_metrics")
+      .select("*")
+      .order("display_order", { ascending: true });
+    if (metricsError) throw new Error(metricsError.message);
+    const rows = allMetrics ?? [];
+
+    let metrics: typeof rows;
+    let hiddenFamilies: (typeof rows)[number] | null;
+    if (isAdmin || role === "TREASURER") {
+      metrics = rows.filter((m) => m.sector !== HIDDEN_FAMILIES_SECTOR);
+      hiddenFamilies = rows.find((m) => m.sector === HIDDEN_FAMILIES_SECTOR) ?? null;
+    } else if (scope) {
+      metrics = rows.filter((m) => m.sector === scope.sector);
+      hiddenFamilies =
+        scope.sector === HIDDEN_FAMILIES_SECTOR
+          ? (rows.find((m) => m.sector === HIDDEN_FAMILIES_SECTOR) ?? null)
+          : null;
+    } else {
+      metrics = [];
+      hiddenFamilies = null;
+    }
+
+    let transactionsQuery = context.supabase
+      .from("treasury_transactions")
+      .select(TREASURY_SELECT_COLUMNS)
+      .order("transaction_date", { ascending: false })
+      .order("created_at", { ascending: false })
+      .limit(5000);
+
+    if (saintFamily) {
+      transactionsQuery = transactionsQuery.eq("saint_family", saintFamily);
+    }
+
+    const { data: transactionRows, error: transactionsError } = await transactionsQuery;
+    if (transactionsError) throw new Error(transactionsError.message);
+
+    const transactions = (transactionRows ?? []) as TreasuryTransaction[];
+    const summary = emptyTreasurySummary();
+    const familySummary: Record<string, TreasuryFamilySummary> = {};
+    TREASURY_FAMILIES.forEach((family) => {
+      familySummary[family.value] = emptyTreasurySummary();
+    });
+
+    for (const row of transactions) {
+      addToTreasurySummary(summary, row);
+      if (!familySummary[row.saint_family]) {
+        familySummary[row.saint_family] = emptyTreasurySummary();
+      }
+      addToTreasurySummary(familySummary[row.saint_family], row);
+    }
+
+    for (const totals of Object.values(familySummary)) {
+      totals.balance = totals.income - totals.expense;
+    }
+    summary.balance = summary.income - summary.expense;
+
+    return {
+      metrics,
+      hiddenFamilies,
+      transactions,
+      summary,
+      familySummary,
+      canManage: hasPermission(role, "manage:treasury"),
+      scope: {
+        kind: scope ? ("family" as const) : ("all" as const),
+        saintFamily,
+        sector: scope?.sector ?? null,
+      },
+      hiddenPersisted: hiddenFamilies !== null,
+    };
+  });
+
+export const createTreasuryTransaction = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .validator((d) => treasuryTransactionSchema.parse(d))
+  .handler(async ({ data, context }) => {
+    requirePermission(context, "manage:treasury");
+    const { data: created, error } = await context.supabase
+      .from("treasury_transactions")
+      .insert({ ...data, created_by: context.userId })
+      .select("id")
+      .single();
+    if (error || !created) throw new Error(error?.message ?? "فشل حفظ الحركة المالية");
+    return { id: created.id };
+  });
+
+export const updateTreasuryTransaction = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .validator((d) => treasuryTransactionSchema.extend({ id: z.string().uuid() }).parse(d))
+  .handler(async ({ data, context }) => {
+    requirePermission(context, "manage:treasury");
+    const { id, ...rest } = data;
+    const { data: existing, error: existingError } = await context.supabase
+      .from("treasury_transactions")
+      .select("id")
+      .eq("id", id)
+      .maybeSingle();
+    if (existingError) throw new Error(existingError.message);
+    if (!existing) throw new Error("لم يتم العثور على الحركة المالية");
+    const { error } = await context.supabase
+      .from("treasury_transactions")
+      .update(rest)
+      .eq("id", id);
+    if (error) throw new Error(error.message);
+    return { id };
+  });
+
+export const deleteTreasuryTransaction = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .validator((d) => z.object({ id: z.string().uuid() }).parse(d))
+  .handler(async ({ data, context }) => {
+    requirePermission(context, "manage:treasury");
+    const { error } = await context.supabase
+      .from("treasury_transactions")
+      .delete()
+      .eq("id", data.id);
+    if (error) throw new Error(error.message);
+    return { ok: true };
   });

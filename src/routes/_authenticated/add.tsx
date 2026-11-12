@@ -17,7 +17,7 @@ function AddPage() {
   const submit = useServerFn(createIndividual);
   const [busy, setBusy] = useState(false);
 
-  const addRestricted = ["SUPPLY_WAREHOUSE_MANAGER", "FURNITURE_WAREHOUSE_MANAGER", "PHARMACY_WAREHOUSE_MANAGER", "BRIDE_AND_MEDICAL_AIDS_MANAGER", "BLESSING_DISTRIBUTOR"];
+  const addRestricted = ["SUPPLY_WAREHOUSE_MANAGER", "FURNITURE_WAREHOUSE_MANAGER", "PHARMACY_WAREHOUSE_MANAGER", "BRIDE_AND_MEDICAL_AIDS_MANAGER", "BLESSING_DISTRIBUTOR", "CLOTHES_MANAGER", "TREASURER"];
 
   useEffect(() => {
     if (addRestricted.includes(role as any)) {

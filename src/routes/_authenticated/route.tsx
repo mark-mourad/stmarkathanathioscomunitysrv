@@ -18,6 +18,8 @@ import {
   Menu,
   X,
   Warehouse,
+  ClipboardList,
+  Wallet,
 } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
@@ -114,6 +116,15 @@ function AuthedLayout() {
                 </DropdownMenuItem>
                 <DropdownMenuItem asChild>
                   <Link
+                    to="/clothes-manager"
+                    onClick={(e) => handleForbiddenNav(e, "/clothes-manager")}
+                    className="flex items-center gap-2 cursor-pointer"
+                  >
+                    <ClipboardList size={16} /> مسؤول ملابس الأعياد والمدارس
+                  </Link>
+                </DropdownMenuItem>
+                <DropdownMenuItem asChild>
+                  <Link
                     to="/furniture"
                     onClick={(e) => handleForbiddenNav(e, "/furniture")}
                     className="flex items-center gap-2 cursor-pointer"
@@ -161,6 +172,15 @@ function AuthedLayout() {
                     className="flex items-center gap-2 cursor-pointer"
                   >
                     <History size={16} /> السجل
+                  </Link>
+                </DropdownMenuItem>
+                <DropdownMenuItem asChild>
+                  <Link
+                    to="/treasury"
+                    onClick={(e) => handleForbiddenNav(e, "/treasury")}
+                    className="flex items-center gap-2 cursor-pointer"
+                  >
+                    <Wallet size={16} /> الخزنة وصندوق الخدمة
                   </Link>
                 </DropdownMenuItem>
               </DropdownMenuContent>
@@ -232,6 +252,12 @@ function AuthedLayout() {
                 onClick={() => setMobileOpen(false)}
               />
               <MobileNavLink
+                to="/clothes-manager"
+                icon={<ClipboardList size={18} />}
+                label="مسؤول ملابس الأعياد والمدارس"
+                onClick={() => setMobileOpen(false)}
+              />
+              <MobileNavLink
                 to="/furniture"
                 icon={<Sofa size={18} />}
                 label="الأجهزة والأثاث"
@@ -257,6 +283,12 @@ function AuthedLayout() {
                 to="/audit"
                 icon={<History size={18} />}
                 label="السجل"
+                onClick={() => setMobileOpen(false)}
+              />
+              <MobileNavLink
+                to="/treasury"
+                icon={<Wallet size={18} />}
+                label="الخزنة وصندوق الخدمة"
                 onClick={() => setMobileOpen(false)}
               />
             </>
@@ -288,6 +320,12 @@ function AuthedLayout() {
 
 function isRouteForbidden(role: string | null, to: string): boolean {
   if (!role || role === "SUPER_ADMIN" || role === "ADMIN") return false;
+  // Exclusive clothes manager: only its dedicated screen is allowed. This is
+  // checked before the "/" allowance so it is redirected away from the
+  // dashboard (treasury/financials) as well.
+  if (role === "CLOTHES_MANAGER") return to !== "/clothes-manager";
+  // Exclusive treasurer: the financial dashboard is the only allowed screen.
+  if (role === "TREASURER") return to !== "/treasury";
   if (to === "/") return false;
   const FS: string[] = ["ST_MATTHEW", "ST_MARK", "ST_JOHN", "ST_LUKE", "ST_HIDDEN_FAMILIES"];
   const WH: string[] = [
@@ -295,7 +333,8 @@ function isRouteForbidden(role: string | null, to: string): boolean {
     "FURNITURE_WAREHOUSE_MANAGER",
     "PHARMACY_WAREHOUSE_MANAGER",
   ];
-  if (FS.includes(role)) return ["/inventory", "/audit"].includes(to);
+  if (FS.includes(role))
+    return ["/inventory", "/audit", "/clothes-manager"].includes(to);
   if (role === "BRIDE_AND_MEDICAL_AIDS_MANAGER") return to !== "/search";
   if (role === "BLESSING_DISTRIBUTOR") return to !== "/blessing-distribution";
   if (role === "SUPPLY_WAREHOUSE_MANAGER") return to !== "/inventory";

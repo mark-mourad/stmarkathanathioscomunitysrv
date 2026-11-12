@@ -90,6 +90,12 @@ function Dashboard() {
     if (isAdmin || isFamilyServant) reload();
   }, [isAdmin, isFamilyServant]);
 
+  // Exclusive roles have their own dedicated screens.
+  useEffect(() => {
+    if (role === "CLOTHES_MANAGER") router.navigate({ to: "/clothes-manager" });
+    else if (role === "TREASURER") router.navigate({ to: "/treasury" });
+  }, [role]);
+
   // STRICT client-side mapping guard: a family servant may only ever render the
   // EXACT sector mapped to their role. Any stray/leaked row is discarded here.
   const roleScope = getFamilyScopeForRole(role);
@@ -121,6 +127,14 @@ function Dashboard() {
       color: "bg-chart-3/15 text-foreground",
     },
   ];
+
+  if (role === "CLOTHES_MANAGER" || role === "TREASURER") {
+    return (
+      <div className="text-center py-8 text-muted-foreground">
+        جاري التوجيه إلى الواجهة المخصصة...
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-4 sm:space-y-6 md:space-y-8">
@@ -571,7 +585,7 @@ function QuickActionButton({
       to={to}
       search={search as any}
       onClick={(e) => {
-        if (restricted.includes(role as any)) {
+        if (role === "CLOTHES_MANAGER" || role === "TREASURER" || restricted.includes(role as any)) {
           e.preventDefault();
           toast.error("غير مصرح لك بهذا الحقل");
         }

@@ -7,6 +7,7 @@ import {
   hasPermission,
   getAssignedFamily,
   isFamilyServant,
+  isTreasurer,
   type Permission,
 } from "@/lib/permissions";
 
@@ -61,6 +62,7 @@ export function useAuth() {
     can,
     assignedFamily: getAssignedFamily(role),
     isFamilyServant: isFamilyServant(role),
+    isTreasurer: isTreasurer(role),
     loading,
     signOut: () => supabase.auth.signOut(),
   };

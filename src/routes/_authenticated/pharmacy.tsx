@@ -99,7 +99,7 @@ type RequestItem = {
 function PharmacyPage() {
   const { can, role } = useAuth();
   const router = useRouter();
-  const pharmRestricted = ["SUPPLY_WAREHOUSE_MANAGER", "FURNITURE_WAREHOUSE_MANAGER", "BRIDE_AND_MEDICAL_AIDS_MANAGER", "BLESSING_DISTRIBUTOR"];
+  const pharmRestricted = ["SUPPLY_WAREHOUSE_MANAGER", "FURNITURE_WAREHOUSE_MANAGER", "BRIDE_AND_MEDICAL_AIDS_MANAGER", "BLESSING_DISTRIBUTOR", "CLOTHES_MANAGER", "TREASURER"];
 
   useEffect(() => {
     if (pharmRestricted.includes(role as any)) {

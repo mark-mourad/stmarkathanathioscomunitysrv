@@ -14,7 +14,7 @@ export const Route = createFileRoute("/_authenticated/audit")({
 function AuditPage() {
   const { can, role } = useAuth();
   const router = useRouter();
-  const auditRestricted = ["SUPPLY_WAREHOUSE_MANAGER", "FURNITURE_WAREHOUSE_MANAGER", "PHARMACY_WAREHOUSE_MANAGER", "BRIDE_AND_MEDICAL_AIDS_MANAGER", "BLESSING_DISTRIBUTOR"];
+  const auditRestricted = ["SUPPLY_WAREHOUSE_MANAGER", "FURNITURE_WAREHOUSE_MANAGER", "PHARMACY_WAREHOUSE_MANAGER", "BRIDE_AND_MEDICAL_AIDS_MANAGER", "BLESSING_DISTRIBUTOR", "CLOTHES_MANAGER", "TREASURER"];
 
   useEffect(() => {
     if (auditRestricted.includes(role as any)) {
