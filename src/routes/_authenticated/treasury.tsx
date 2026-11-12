@@ -5,12 +5,12 @@ import {
   createTreasuryTransaction,
   deleteTreasuryTransaction,
   getTreasuryDashboard,
-  saveHiddenFamiliesMetric,
   updateMetric,
   updateTreasuryTransaction,
 } from "@/lib/church.functions";
 import { useAuth } from "@/hooks/use-auth";
 import {
+  HIDDEN_FAMILY_VALUE,
   HIDDEN_FAMILIES_SECTOR,
   TREASURY_CATEGORIES,
   TREASURY_FAMILIES,
@@ -30,18 +30,8 @@ import {
   type TreasuryTransactionType,
 } from "@/lib/treasury";
 import {
-  Bar,
-  BarChart,
-  CartesianGrid,
-  Legend,
-  ResponsiveContainer,
-  Tooltip,
-  XAxis,
-  YAxis,
-} from "recharts";
-import {
-  ArrowDownCircle,
-  ArrowUpCircle,
+  BookOpen,
+  DollarSign,
   Download,
   FilterX,
   Loader2,
@@ -49,12 +39,14 @@ import {
   Plus,
   RefreshCw,
   Save,
-  Scale,
+  Stethoscope,
   Trash2,
+  TrendingUp,
   Wallet,
   X,
 } from "lucide-react";
 import { toast } from "sonner";
+import { HiddenFamiliesPieCard, SectorBarChart } from "@/components/financial-metrics-charts";
 
 export const Route = createFileRoute("/_authenticated/treasury")({
   head: () => ({ meta: [{ title: "الخزنة وصندوق الخدمة" }] }),
@@ -182,6 +174,7 @@ function TreasuryPage() {
   }, [authLoading, canAccess, reload]);
 
   const scopedFamily = data?.scope.saintFamily ?? null;
+  const canManage = Boolean(data?.canManage);
 
   const filteredTransactions = useMemo(() => {
     const rows = data?.transactions ?? [];
@@ -244,23 +237,64 @@ function TreasuryPage() {
   );
 
   const metricsForCharts = useMemo(
-    () => mergeMetrics(data?.metrics ?? [], data?.hiddenFamilies ?? null, canSeeHidden),
-    [data, canSeeHidden],
+    () =>
+      mergeMetrics(
+        data?.metrics ?? [],
+        data?.hiddenFamilies ?? null,
+        canSeeHidden || scopedFamily === HIDDEN_FAMILY_VALUE,
+      ),
+    [data, canSeeHidden, scopedFamily],
   );
 
-  const familyChartData = useMemo(
+  const sectorMetrics = metricsForCharts.filter(
+    (metric) => metric.sector !== HIDDEN_FAMILIES_SECTOR,
+  );
+
+  const categoryTotals = useMemo(
     () =>
-      TREASURY_FAMILIES.filter(
-        (family) => !scopedFamily || family.value === scopedFamily,
-      ).map((family) => {
-        const totals = filteredFamilySummary[family.value] ?? emptyTreasurySummary();
-        return {
-          name: family.label,
-          income: totals.income,
-          expense: totals.expense,
-        };
-      }),
-    [filteredFamilySummary, scopedFamily],
+      metricsForCharts.reduce(
+        (totals, metric) => ({
+          monthly: totals.monthly + Number(metric.monthly ?? 0),
+          therapeutic: totals.therapeutic + Number(metric.therapeutic ?? 0),
+          study: totals.study + Number(metric.study ?? 0),
+        }),
+        { monthly: 0, therapeutic: 0, study: 0 },
+      ),
+    [metricsForCharts],
+  );
+
+  const summaryCards = [
+    {
+      label: "إجمالي الخارج",
+      value: categoryTotals.monthly + categoryTotals.study + categoryTotals.therapeutic,
+      icon: DollarSign,
+      color: "bg-primary/10 text-primary",
+    },
+    {
+      label: "الشهريات",
+      value: categoryTotals.monthly,
+      icon: TrendingUp,
+      color: "bg-sky/15 text-sky",
+    },
+    {
+      label: "مساعدات دراسية",
+      value: categoryTotals.study,
+      icon: BookOpen,
+      color: "bg-teal/15 text-teal",
+    },
+    {
+      label: "مساعدات علاجية",
+      value: categoryTotals.therapeutic,
+      icon: Stethoscope,
+      color: "bg-chart-3/15 text-foreground",
+    },
+  ];
+
+  const showHiddenFamiliesChart = canManage || scopedFamily === HIDDEN_FAMILY_VALUE;
+
+  const visibleFamilySummary = useMemo(
+    () => (canManage ? filteredFamilySummary : (data?.familySummary ?? {})),
+    [canManage, data?.familySummary, filteredFamilySummary],
   );
 
   function resetFilters() {
@@ -298,6 +332,10 @@ function TreasuryPage() {
       toast.error("برجاء إدخال التصنيف");
       return;
     }
+    if (!form.description.trim()) {
+      toast.error("برجاء إدخال ملاحظات / وصف الحركة");
+      return;
+    }
 
     setSaving(true);
     try {
@@ -307,7 +345,7 @@ function TreasuryPage() {
         transaction_type: form.transaction_type,
         category: form.category.trim(),
         amount,
-        description: form.description.trim() || null,
+        description: form.description.trim(),
         reference: form.reference.trim() || null,
       } as const;
 
@@ -386,11 +424,8 @@ function TreasuryPage() {
     );
   }
 
-  const displaySummary = filteredSummary;
-  const canManage = Boolean(data?.canManage);
-
   return (
-    <div className="space-y-6">
+    <div className="space-y-4 sm:space-y-6 md:space-y-8">
       <div className="flex items-start justify-between gap-3 flex-wrap">
         <div>
           <h1 className="display text-2xl text-ink flex items-center gap-2">
@@ -412,139 +447,87 @@ function TreasuryPage() {
             {loading ? <Loader2 size={15} className="animate-spin" /> : <RefreshCw size={15} />}
             تحديث
           </button>
-          <button
-            type="button"
-            onClick={handleExport}
-            className="chip-green flex items-center gap-1.5 px-5 py-2 text-sm"
-          >
-            <Download size={16} /> تصدير CSV
-          </button>
+          {canManage && (
+            <button
+              type="button"
+              onClick={handleExport}
+              className="chip-green flex items-center gap-1.5 px-5 py-2 text-sm"
+            >
+              <Download size={16} /> تصدير CSV
+            </button>
+          )}
         </div>
       </div>
 
-      {/* Summary */}
-      <section className="grid grid-cols-2 gap-3 lg:grid-cols-4">
-        <SummaryCard
-          label="إجمالي الإيرادات"
-          value={displaySummary.income}
-          icon={<ArrowUpCircle size={20} />}
-          tone="teal"
-        />
-        <SummaryCard
-          label="إجمالي المصروفات"
-          value={displaySummary.expense}
-          icon={<ArrowDownCircle size={20} />}
-          tone="warn"
-        />
-        <SummaryCard
-          label="الرصيد"
-          value={displaySummary.balance}
-          icon={<Scale size={20} />}
-          tone={displaySummary.balance >= 0 ? "primary" : "warn"}
-        />
-        <SummaryCard
-          label="عدد الحركات"
-          value={displaySummary.count}
-          icon={<Wallet size={20} />}
-          tone="primary"
-          plain
-        />
+      {/* Summary Cards — same layout and categories as the Admin dashboard */}
+      <section className="grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-4">
+        {summaryCards.map((card) => (
+          <article
+            key={card.label}
+            className="paper-card !p-3 sm:!p-6 flex flex-col items-start gap-2 sm:flex-row sm:items-center sm:gap-4"
+          >
+            <div className={`rounded-xl p-2 sm:p-3 shrink-0 ${card.color}`}>
+              <card.icon size={22} className="size-[18px] sm:size-[22px]" />
+            </div>
+            <div className="min-w-0 w-full sm:w-auto">
+              <p className="text-[11px] sm:text-xs text-muted-foreground truncate">{card.label}</p>
+              <p className="display text-lg sm:text-xl text-ink tabular-nums truncate">
+                {card.value.toLocaleString("ar-EG")}
+              </p>
+            </div>
+          </article>
+        ))}
       </section>
 
-      {/* Charts */}
-      <section className="grid grid-cols-1 gap-4 lg:grid-cols-2">
-        <article className="paper-card">
-          <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
-            <h2 className="display text-lg text-ink">القيم المالية للقطاعات</h2>
-            {canManage && (
-              <button
-                type="button"
-                onClick={() => setEditMetricsOpen(true)}
-                className="flex items-center gap-1 rounded-full bg-primary/10 px-3 py-1.5 text-xs font-semibold text-primary hover:bg-primary/20"
-              >
-                <Pencil size={13} /> تعديل القيم
-              </button>
-            )}
-          </div>
-          {metricsForCharts.length === 0 ? (
-            <p className="text-center text-muted-foreground py-10">لا توجد قيم مالية مسجلة</p>
-          ) : (
-            <div className="h-64">
-              <ResponsiveContainer>
-                <BarChart data={metricsForCharts} margin={{ top: 10, right: 10, left: 0, bottom: 10 }}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="var(--color-border)" />
-                  <XAxis
-                    dataKey="sector"
-                    tick={{ fontSize: 11 }}
-                    interval={0}
-                    stroke="var(--color-muted-foreground)"
-                  />
-                  <YAxis tick={{ fontSize: 11 }} stroke="var(--color-muted-foreground)" />
-                  <Tooltip
-                    contentStyle={{
-                      background: "var(--color-paper-2)",
-                      border: "1px solid var(--color-border)",
-                      borderRadius: 12,
-                    }}
-                  />
-                  <Legend />
-                  <Bar dataKey="monthly" name="شهريات" fill="var(--color-sky)" radius={[4, 4, 0, 0]} />
-                  <Bar dataKey="study" name="مساعدات دراسية" fill="var(--color-teal)" radius={[4, 4, 0, 0]} />
-                  <Bar
-                    dataKey="therapeutic"
-                    name="مساعدات علاجية"
-                    fill="var(--color-chart-3)"
-                    radius={[4, 4, 0, 0]}
-                  />
-                </BarChart>
-              </ResponsiveContainer>
-            </div>
-          )}
-        </article>
-
-        <article className="paper-card">
-          <h2 className="display text-lg text-ink mb-4">الإيرادات والمصروفات حسب الأسرة</h2>
-          <div className="h-64">
-            <ResponsiveContainer>
-              <BarChart data={familyChartData} margin={{ top: 10, right: 10, left: 0, bottom: 10 }}>
-                <CartesianGrid strokeDasharray="3 3" stroke="var(--color-border)" />
-                <XAxis
-                  dataKey="name"
-                  tick={{ fontSize: 10 }}
-                  interval={0}
-                  stroke="var(--color-muted-foreground)"
-                />
-                <YAxis tick={{ fontSize: 11 }} stroke="var(--color-muted-foreground)" />
-                <Tooltip
-                  contentStyle={{
-                    background: "var(--color-paper-2)",
-                    border: "1px solid var(--color-border)",
-                    borderRadius: 12,
-                  }}
-                />
-                <Legend />
-                <Bar dataKey="income" name="إيرادات" fill="var(--color-teal)" radius={[4, 4, 0, 0]} />
-                <Bar
-                  dataKey="expense"
-                  name="مصروفات"
-                  fill="var(--color-chart-3)"
-                  radius={[4, 4, 0, 0]}
-                />
-              </BarChart>
-            </ResponsiveContainer>
-          </div>
-        </article>
+      {/* Charts — shared with the Admin dashboard */}
+      <section
+        className={`grid grid-cols-1 gap-4 sm:gap-6 ${showHiddenFamiliesChart ? "lg:grid-cols-2" : ""}`}
+      >
+        <SectorBarChart
+          metrics={sectorMetrics}
+          editable={canManage}
+          onEdit={() => setEditMetricsOpen(true)}
+        />
+        {showHiddenFamiliesChart && (
+          <HiddenFamiliesPieCard
+            metric={data?.hiddenFamilies ?? null}
+            editable={canManage}
+            onEdit={() => setEditMetricsOpen(true)}
+          />
+        )}
       </section>
 
       {/* Family totals */}
+      <h2 className="display text-lg text-ink">تفصيل المساعدات حسب الأسرة</h2>
       <section className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-5">
         {TREASURY_FAMILIES.filter((family) => !scopedFamily || family.value === scopedFamily).map(
           (family) => {
-            const totals = filteredFamilySummary[family.value] ?? emptyTreasurySummary();
+            const totals = visibleFamilySummary[family.value] ?? emptyTreasurySummary();
+            const metric = metricsForCharts.find(
+              (row) => getTreasuryFamilyForSector(row.sector) === family.value,
+            );
             return (
               <article key={family.value} className="paper-card !p-4">
                 <p className="text-sm font-semibold text-ink">{family.label}</p>
                 <div className="mt-2 space-y-1 text-xs text-muted-foreground">
+                  <div className="flex items-center justify-between gap-2">
+                    <span>شهريات</span>
+                    <span className="tabular-nums font-semibold text-primary">
+                      {formatTreasuryAmount(metric?.monthly ?? 0)}
+                    </span>
+                  </div>
+                  <div className="flex items-center justify-between gap-2">
+                    <span>علاجية</span>
+                    <span className="tabular-nums font-semibold text-chart-3">
+                      {formatTreasuryAmount(metric?.therapeutic ?? 0)}
+                    </span>
+                  </div>
+                  <div className="flex items-center justify-between gap-2">
+                    <span>دراسية</span>
+                    <span className="tabular-nums font-semibold text-teal">
+                      {formatTreasuryAmount(metric?.study ?? 0)}
+                    </span>
+                  </div>
                   <div className="flex items-center justify-between gap-2">
                     <span>إيرادات</span>
                     <span className="tabular-nums font-semibold text-teal">
@@ -589,12 +572,17 @@ function TreasuryPage() {
             )}
           </div>
 
-          <form onSubmit={submitForm} className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
+          <form
+            onSubmit={submitForm}
+            className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4"
+          >
             <label className="block">
               <span className="text-xs font-semibold text-muted-foreground">الأسرة</span>
               <select
                 value={form.saint_family}
-                onChange={(e) => setForm((current) => ({ ...current, saint_family: e.target.value }))}
+                onChange={(e) =>
+                  setForm((current) => ({ ...current, saint_family: e.target.value }))
+                }
                 disabled={Boolean(scopedFamily)}
                 className="mt-1 w-full rounded-xl bg-paper border border-border px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-ring disabled:opacity-60"
               >
@@ -676,12 +664,18 @@ function TreasuryPage() {
             </label>
 
             <label className="block sm:col-span-2">
-              <span className="text-xs font-semibold text-muted-foreground">الوصف (اختياري)</span>
-              <input
+              <span className="text-xs font-semibold text-muted-foreground">
+                ملاحظات / وصف الحركة <span className="text-destructive">*</span>
+              </span>
+              <textarea
                 value={form.description}
-                onChange={(e) => setForm((current) => ({ ...current, description: e.target.value }))}
-                className="mt-1 w-full rounded-xl bg-paper border border-border px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-ring"
-                placeholder="بيان الحركة المالية"
+                onChange={(e) =>
+                  setForm((current) => ({ ...current, description: e.target.value }))
+                }
+                className="mt-1 min-h-20 w-full rounded-xl bg-paper border border-border px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-ring"
+                placeholder="سبب الحركة، المستفيد، أو رقم الفاتورة"
+                maxLength={2000}
+                required
               />
             </label>
 
@@ -699,200 +693,209 @@ function TreasuryPage() {
         </section>
       )}
 
-      {/* Filters */}
-      <section className="paper-card">
-        <div className="mb-3 flex items-center justify-between gap-2">
-          <h2 className="display text-lg text-ink">فلاتر البحث</h2>
-          <button
-            type="button"
-            onClick={resetFilters}
-            className="flex items-center gap-1 text-xs font-semibold text-muted-foreground hover:text-primary"
-          >
-            <FilterX size={14} /> مسح الفلاتر
-          </button>
-        </div>
+      {canManage && (
+        <>
+          {/* Filters */}
+          <section className="paper-card">
+            <div className="mb-3 flex items-center justify-between gap-2">
+              <h2 className="display text-lg text-ink">فلاتر البحث</h2>
+              <button
+                type="button"
+                onClick={resetFilters}
+                className="flex items-center gap-1 text-xs font-semibold text-muted-foreground hover:text-primary"
+              >
+                <FilterX size={14} /> مسح الفلاتر
+              </button>
+            </div>
 
-        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-6">
-          <label className="block">
-            <span className="text-xs font-semibold text-muted-foreground">من تاريخ</span>
-            <input
-              type="date"
-              value={filterFrom}
-              onChange={(e) => setFilterFrom(e.target.value)}
-              className="mt-1 w-full rounded-xl bg-paper border border-border px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-ring"
-            />
-          </label>
-          <label className="block">
-            <span className="text-xs font-semibold text-muted-foreground">إلى تاريخ</span>
-            <input
-              type="date"
-              value={filterTo}
-              onChange={(e) => setFilterTo(e.target.value)}
-              className="mt-1 w-full rounded-xl bg-paper border border-border px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-ring"
-            />
-          </label>
-          <label className="block">
-            <span className="text-xs font-semibold text-muted-foreground">الأسرة</span>
-            <select
-              value={filterFamily}
-              onChange={(e) => setFilterFamily(e.target.value)}
-              className="mt-1 w-full rounded-xl bg-paper border border-border px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-ring"
-            >
-              <option value="all">كل الأسر</option>
-              {TREASURY_FAMILIES.filter(
-                (family) => !scopedFamily || family.value === scopedFamily,
-              ).map((family) => (
-                <option key={family.value} value={family.value}>
-                  {family.label}
-                </option>
-              ))}
-            </select>
-          </label>
-          <label className="block">
-            <span className="text-xs font-semibold text-muted-foreground">نوع الحركة</span>
-            <select
-              value={filterType}
-              onChange={(e) => {
-                setFilterType(e.target.value as "all" | TreasuryTransactionType);
-                setFilterCategory("all");
-              }}
-              className="mt-1 w-full rounded-xl bg-paper border border-border px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-ring"
-            >
-              <option value="all">كل الحركات</option>
-              {TREASURY_TRANSACTION_TYPES.map((type) => (
-                <option key={type.value} value={type.value}>
-                  {type.label}
-                </option>
-              ))}
-            </select>
-          </label>
-          <label className="block">
-            <span className="text-xs font-semibold text-muted-foreground">التصنيف</span>
-            <select
-              value={filterCategory}
-              onChange={(e) => setFilterCategory(e.target.value)}
-              className="mt-1 w-full rounded-xl bg-paper border border-border px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-ring"
-            >
-              <option value="all">كل التصنيفات</option>
-              {categoryOptions.map((category) => (
-                <option key={category} value={category}>
-                  {category}
-                </option>
-              ))}
-            </select>
-          </label>
-          <label className="block">
-            <span className="text-xs font-semibold text-muted-foreground">بحث</span>
-            <input
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="mt-1 w-full rounded-xl bg-paper border border-border px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-ring"
-              placeholder="تصنيف / وصف / مرجع..."
-            />
-          </label>
-        </div>
-      </section>
-
-      {/* Transactions table */}
-      <section className="paper-card">
-        <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
-          <h2 className="display text-lg text-ink">سجل الحركات المالية</h2>
-          <span className="text-sm text-muted-foreground">
-            {filteredTransactions.length} من أصل {data?.transactions.length ?? 0} حركة
-          </span>
-        </div>
-
-        {loading ? (
-          <p className="text-center text-muted-foreground py-10">جارٍ تحميل الحركات المالية...</p>
-        ) : filteredTransactions.length === 0 ? (
-          <p className="text-center text-muted-foreground py-10">
-            لا توجد حركات مطابقة للفلاتر الحالية
-          </p>
-        ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm border-collapse min-w-[720px]">
-              <thead>
-                <tr className="text-muted-foreground">
-                  {[
-                    "م",
-                    "التاريخ",
-                    "الأسرة",
-                    "النوع",
-                    "التصنيف",
-                    "المبلغ",
-                    "الوصف / المرجع",
-                    ...(canManage ? ["إجراءات"] : []),
-                  ].map((header) => (
-                    <th key={header} className="text-start px-2 py-2 whitespace-nowrap">
-                      {header}
-                    </th>
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-6">
+              <label className="block">
+                <span className="text-xs font-semibold text-muted-foreground">من تاريخ</span>
+                <input
+                  type="date"
+                  value={filterFrom}
+                  onChange={(e) => setFilterFrom(e.target.value)}
+                  className="mt-1 w-full rounded-xl bg-paper border border-border px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-ring"
+                />
+              </label>
+              <label className="block">
+                <span className="text-xs font-semibold text-muted-foreground">إلى تاريخ</span>
+                <input
+                  type="date"
+                  value={filterTo}
+                  onChange={(e) => setFilterTo(e.target.value)}
+                  className="mt-1 w-full rounded-xl bg-paper border border-border px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-ring"
+                />
+              </label>
+              <label className="block">
+                <span className="text-xs font-semibold text-muted-foreground">الأسرة</span>
+                <select
+                  value={filterFamily}
+                  onChange={(e) => setFilterFamily(e.target.value)}
+                  className="mt-1 w-full rounded-xl bg-paper border border-border px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-ring"
+                >
+                  <option value="all">كل الأسر</option>
+                  {TREASURY_FAMILIES.filter(
+                    (family) => !scopedFamily || family.value === scopedFamily,
+                  ).map((family) => (
+                    <option key={family.value} value={family.value}>
+                      {family.label}
+                    </option>
                   ))}
-                </tr>
-              </thead>
-              <tbody>
-                {filteredTransactions.map((row, index) => (
-                  <tr key={row.id} className="border-t border-border/50">
-                    <td className="px-2 py-2 text-muted-foreground">{index + 1}</td>
-                    <td className="px-2 py-2 whitespace-nowrap tabular-nums">
-                      {formatDate(row.transaction_date)}
-                    </td>
-                    <td className="px-2 py-2 whitespace-nowrap">
-                      {getTreasuryFamilyLabel(row.saint_family)}
-                    </td>
-                    <td className="px-2 py-2 whitespace-nowrap">
-                      <span
-                        className={`rounded-full px-2 py-0.5 text-xs font-semibold ${
-                          row.transaction_type === "income"
-                            ? "bg-teal/15 text-teal"
-                            : "bg-chart-3/15 text-foreground"
-                        }`}
-                      >
-                        {getTreasuryTypeLabel(row.transaction_type)}
-                      </span>
-                    </td>
-                    <td className="px-2 py-2 whitespace-nowrap">{row.category}</td>
-                    <td className="px-2 py-2 whitespace-nowrap tabular-nums font-semibold">
-                      {formatTreasuryAmount(row.amount)}
-                    </td>
-                    <td className="px-2 py-2 text-muted-foreground">
-                      <div className="max-w-[16rem] truncate" title={row.description ?? ""}>
-                        {row.description || "—"}
-                      </div>
-                      {row.reference && (
-                        <div className="text-[11px] text-muted-foreground/80 truncate">
-                          مرجع: {row.reference}
-                        </div>
-                      )}
-                    </td>
-                    {canManage && (
-                      <td className="px-2 py-2">
-                        <div className="flex items-center gap-1">
-                          <button
-                            type="button"
-                            onClick={() => startEdit(row)}
-                            className="flex items-center justify-center min-h-8 min-w-8 rounded-full text-muted-foreground hover:text-primary hover:bg-primary/10"
-                            aria-label="تعديل الحركة"
+                </select>
+              </label>
+              <label className="block">
+                <span className="text-xs font-semibold text-muted-foreground">نوع الحركة</span>
+                <select
+                  value={filterType}
+                  onChange={(e) => {
+                    setFilterType(e.target.value as "all" | TreasuryTransactionType);
+                    setFilterCategory("all");
+                  }}
+                  className="mt-1 w-full rounded-xl bg-paper border border-border px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-ring"
+                >
+                  <option value="all">كل الحركات</option>
+                  {TREASURY_TRANSACTION_TYPES.map((type) => (
+                    <option key={type.value} value={type.value}>
+                      {type.label}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <label className="block">
+                <span className="text-xs font-semibold text-muted-foreground">التصنيف</span>
+                <select
+                  value={filterCategory}
+                  onChange={(e) => setFilterCategory(e.target.value)}
+                  className="mt-1 w-full rounded-xl bg-paper border border-border px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-ring"
+                >
+                  <option value="all">كل التصنيفات</option>
+                  {categoryOptions.map((category) => (
+                    <option key={category} value={category}>
+                      {category}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <label className="block">
+                <span className="text-xs font-semibold text-muted-foreground">بحث</span>
+                <input
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className="mt-1 w-full rounded-xl bg-paper border border-border px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-ring"
+                  placeholder="تصنيف / وصف / مرجع..."
+                />
+              </label>
+            </div>
+          </section>
+
+          {/* Transactions table */}
+          <section className="paper-card">
+            <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
+              <h2 className="display text-lg text-ink">سجل الحركات المالية</h2>
+              <span className="text-sm text-muted-foreground">
+                {filteredTransactions.length} من أصل {data?.transactions.length ?? 0} حركة
+              </span>
+            </div>
+
+            {loading ? (
+              <p className="text-center text-muted-foreground py-10">
+                جارٍ تحميل الحركات المالية...
+              </p>
+            ) : filteredTransactions.length === 0 ? (
+              <p className="text-center text-muted-foreground py-10">
+                لا توجد حركات مطابقة للفلاتر الحالية
+              </p>
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm border-collapse min-w-[720px]">
+                  <thead>
+                    <tr className="text-muted-foreground">
+                      {[
+                        "م",
+                        "التاريخ",
+                        "الأسرة",
+                        "النوع",
+                        "التصنيف",
+                        "المبلغ",
+                        "ملاحظات / الوصف / المرجع",
+                        ...(canManage ? ["إجراءات"] : []),
+                      ].map((header) => (
+                        <th key={header} className="text-start px-2 py-2 whitespace-nowrap">
+                          {header}
+                        </th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {filteredTransactions.map((row, index) => (
+                      <tr key={row.id} className="border-t border-border/50">
+                        <td className="px-2 py-2 text-muted-foreground">{index + 1}</td>
+                        <td className="px-2 py-2 whitespace-nowrap tabular-nums">
+                          {formatDate(row.transaction_date)}
+                        </td>
+                        <td className="px-2 py-2 whitespace-nowrap">
+                          {getTreasuryFamilyLabel(row.saint_family)}
+                        </td>
+                        <td className="px-2 py-2 whitespace-nowrap">
+                          <span
+                            className={`rounded-full px-2 py-0.5 text-xs font-semibold ${
+                              row.transaction_type === "income"
+                                ? "bg-teal/15 text-teal"
+                                : "bg-chart-3/15 text-foreground"
+                            }`}
                           >
-                            <Pencil size={14} />
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => removeTransaction(row)}
-                            className="flex items-center justify-center min-h-8 min-w-8 rounded-full text-muted-foreground hover:text-destructive hover:bg-destructive/10"
-                            aria-label="حذف الحركة"
+                            {getTreasuryTypeLabel(row.transaction_type)}
+                          </span>
+                        </td>
+                        <td className="px-2 py-2 whitespace-nowrap">{row.category}</td>
+                        <td className="px-2 py-2 whitespace-nowrap tabular-nums font-semibold">
+                          {formatTreasuryAmount(row.amount)}
+                        </td>
+                        <td className="px-2 py-2 text-muted-foreground">
+                          <div
+                            className="max-w-[16rem] whitespace-normal break-words"
+                            title={row.description ?? ""}
                           >
-                            <Trash2 size={14} />
-                          </button>
-                        </div>
-                      </td>
-                    )}
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        )}
-      </section>
+                            {row.description || "—"}
+                          </div>
+                          {row.reference && (
+                            <div className="text-[11px] text-muted-foreground/80 truncate">
+                              مرجع: {row.reference}
+                            </div>
+                          )}
+                        </td>
+                        {canManage && (
+                          <td className="px-2 py-2">
+                            <div className="flex items-center gap-1">
+                              <button
+                                type="button"
+                                onClick={() => startEdit(row)}
+                                className="flex items-center justify-center min-h-8 min-w-8 rounded-full text-muted-foreground hover:text-primary hover:bg-primary/10"
+                                aria-label="تعديل الحركة"
+                              >
+                                <Pencil size={14} />
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => removeTransaction(row)}
+                                className="flex items-center justify-center min-h-8 min-w-8 rounded-full text-muted-foreground hover:text-destructive hover:bg-destructive/10"
+                                aria-label="حذف الحركة"
+                              >
+                                <Trash2 size={14} />
+                              </button>
+                            </div>
+                          </td>
+                        )}
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </section>
+        </>
+      )}
 
       {editMetricsOpen && canManage && (
         <EditMetricsDialog
@@ -914,38 +917,6 @@ function TreasuryPage() {
   );
 }
 
-function SummaryCard({
-  label,
-  value,
-  icon,
-  tone,
-  plain,
-}: {
-  label: string;
-  value: number;
-  icon: React.ReactNode;
-  tone: "primary" | "teal" | "warn";
-  plain?: boolean;
-}) {
-  const toneClass =
-    tone === "teal"
-      ? "bg-teal/15 text-teal"
-      : tone === "warn"
-        ? "bg-chart-3/15 text-foreground"
-        : "bg-primary/10 text-primary";
-  return (
-    <article className="paper-card !p-4 flex items-center gap-3">
-      <div className={`rounded-xl p-2.5 shrink-0 ${toneClass}`}>{icon}</div>
-      <div className="min-w-0">
-        <p className="text-xs text-muted-foreground truncate">{label}</p>
-        <p className="display text-lg text-ink tabular-nums truncate">
-          {plain ? value.toLocaleString("ar-EG") : formatTreasuryAmount(value)}
-        </p>
-      </div>
-    </article>
-  );
-}
-
 function EditMetricsDialog({
   metrics,
   onClose,
@@ -956,9 +927,9 @@ function EditMetricsDialog({
   onSaved: () => void;
 }) {
   const saveMetric = useServerFn(updateMetric);
-  const saveHidden = useServerFn(saveHiddenFamiliesMetric);
   const [selectedId, setSelectedId] = useState(metrics[0]?.id ?? "");
   const [busy, setBusy] = useState(false);
+  const [description, setDescription] = useState("");
 
   const selected = metrics.find((metric) => metric.id === selectedId) ?? metrics[0];
   const [monthly, setMonthly] = useState(Number(selected?.monthly ?? 0));
@@ -979,13 +950,15 @@ function EditMetricsDialog({
       toast.error("لا توجد قيمة مالية للتعديل");
       return;
     }
+    if (!description.trim()) {
+      toast.error("برجاء إدخال ملاحظات / وصف الحركة");
+      return;
+    }
     setBusy(true);
     try {
-      if (selected.sector === HIDDEN_FAMILIES_SECTOR) {
-        await saveHidden({ data: { monthly, study, therapeutic } });
-      } else {
-        await saveMetric({ data: { id: selected.id, monthly, study, therapeutic } });
-      }
+      await saveMetric({
+        data: { id: selected.id, monthly, study, therapeutic, description: description.trim() },
+      });
       toast.success("تم تحديث القيم المالية");
       onSaved();
     } catch (error) {
@@ -1063,6 +1036,20 @@ function EditMetricsDialog({
             />
           </label>
         </div>
+
+        <label className="mt-3 block">
+          <span className="text-xs font-semibold text-muted-foreground">
+            ملاحظات / وصف التعديل <span className="text-destructive">*</span>
+          </span>
+          <textarea
+            value={description}
+            onChange={(e) => setDescription(e.target.value)}
+            className="mt-1 min-h-20 w-full rounded-xl bg-paper-2 border border-border px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-ring"
+            placeholder="سبب التعديل أو تفاصيل المستفيد / المستند"
+            maxLength={2000}
+            required
+          />
+        </label>
 
         <div className="mt-4 flex justify-end gap-2">
           <button

@@ -153,9 +153,8 @@ const ROLE_PERMISSIONS: Record<Role, Permission[]> = {
     "view:pharmacy", "manage:pharmacy",
   ],
   CLOTHES_MANAGER: [
-    // Exclusive role: this manager can only see aggregated clothes data.
-    // No dashboard, treasury, beneficiary, or other module permissions.
-    "view:clothes-manager",
+    // Exclusive role: full access to clothes requests and factory aggregation only.
+    "view:clothes", "view:clothes-manager",
   ],
   TREASURER: [
     // Exclusive role: financial operations, treasury funds and transaction logs
@@ -191,7 +190,7 @@ export function isTreasurer(role: Role | null): boolean {
  * general dashboard (beneficiary/treasury mix) and the clothes manager must
  * never land on the financial dashboard.
  */
-export function getHomeRouteForRole(role: Role | null): string {
+export function getHomeRouteForRole(role: Role | null): "/" | "/clothes-manager" | "/treasury" {
   if (role === "CLOTHES_MANAGER") return "/clothes-manager";
   if (role === "TREASURER") return "/treasury";
   return "/";
@@ -225,6 +224,9 @@ export function getVisibleSaintFamilyValues(role: Role | null): readonly string[
 }
 
 export function resolvePrimaryRole(dbRoles: string[]): Role | null {
+  // The clothes manager is exclusive and remains clothes-scoped even if a
+  // legacy account has conflicting role rows.
+  if (dbRoles.includes("CLOTHES_MANAGER")) return "CLOTHES_MANAGER";
   // TREASURER is an exclusive role. Resolve it first so a conflicting legacy
   // assignment can never inherit non-financial permissions; the database
   // trigger `enforce_treasurer_exclusivity` prevents new conflicts.
@@ -241,6 +243,5 @@ export function resolvePrimaryRole(dbRoles: string[]): Role | null {
   if (dbRoles.includes("SUPPLY_WAREHOUSE_MANAGER")) return "SUPPLY_WAREHOUSE_MANAGER";
   if (dbRoles.includes("FURNITURE_WAREHOUSE_MANAGER")) return "FURNITURE_WAREHOUSE_MANAGER";
   if (dbRoles.includes("PHARMACY_WAREHOUSE_MANAGER")) return "PHARMACY_WAREHOUSE_MANAGER";
-  if (dbRoles.includes("CLOTHES_MANAGER")) return "CLOTHES_MANAGER";
   return null;
 }

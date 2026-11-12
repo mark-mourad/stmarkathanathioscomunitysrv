@@ -902,7 +902,27 @@ export interface Database {
       };
     };
     Views: Record<string, never>;
-    Functions: Record<string, never>;
+    Functions: {
+      save_treasury_metric_with_audit: {
+        Args: {
+          p_description: string;
+          p_metric_id: string;
+          p_monthly: number;
+          p_study: number;
+          p_therapeutic: number;
+        };
+        Returns: number;
+      };
+      save_treasury_hidden_metric_with_audit: {
+        Args: {
+          p_description: string;
+          p_monthly: number;
+          p_study: number;
+          p_therapeutic: number;
+        };
+        Returns: string;
+      };
+    };
     Enums: Record<string, never>;
     CompositeTypes: Record<string, never>;
   };

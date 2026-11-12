@@ -1,18 +1,5 @@
 import { createFileRoute, Link, useRouter } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
-import {
-  BarChart,
-  Bar,
-  XAxis,
-  YAxis,
-  CartesianGrid,
-  Tooltip,
-  ResponsiveContainer,
-  PieChart,
-  Pie,
-  Cell,
-  Legend,
-} from "recharts";
 import { useServerFn } from "@tanstack/react-start";
 import {
   getDashboard,
@@ -37,7 +24,8 @@ import {
   Pill,
 } from "lucide-react";
 import { toast } from "sonner";
-import { getFamilyScopeForRole } from "@/lib/permissions";
+import { getFamilyScopeForRole, getHomeRouteForRole } from "@/lib/permissions";
+import { HiddenFamiliesPieCard, SectorBarChart } from "@/components/financial-metrics-charts";
 
 export const Route = createFileRoute("/_authenticated/")({
   head: () => ({ meta: [{ title: "اللوحة الرئيسية" }] }),
@@ -92,8 +80,9 @@ function Dashboard() {
 
   // Exclusive roles have their own dedicated screens.
   useEffect(() => {
-    if (role === "CLOTHES_MANAGER") router.navigate({ to: "/clothes-manager" });
-    else if (role === "TREASURER") router.navigate({ to: "/treasury" });
+    if (role === "CLOTHES_MANAGER" || role === "TREASURER") {
+      router.navigate({ to: getHomeRouteForRole(role) });
+    }
   }, [role]);
 
   // STRICT client-side mapping guard: a family servant may only ever render the
@@ -277,64 +266,11 @@ function Dashboard() {
       {/* ═══════ Zone 2: Charts Grid — Only for SUPER_ADMIN & ADMIN ═══════ */}
       {isAdmin && (
         <section className="grid grid-cols-1 gap-4 sm:gap-6 lg:grid-cols-2">
-          {/* Bar Chart */}
-          <article className="paper-card !p-4 sm:!p-6 min-w-0">
-            <div className="flex items-center justify-between gap-2 mb-4">
-              <h2 className="display text-sm text-muted-foreground min-w-0">مصاريف القطاعات</h2>
-              <button
-                onClick={() => metrics[0] && setEditing(metrics[0])}
-                className="shrink-0 flex items-center justify-center gap-1 min-h-11 min-w-11 px-2 rounded-full text-xs text-muted-foreground hover:text-primary hover:bg-primary/10 transition"
-              >
-                <Pencil size={12} /> تعديل
-              </button>
-            </div>
-            <div className="h-56 sm:h-72 relative z-0">
-              <ResponsiveContainer>
-                <BarChart
-                  data={metrics}
-                  layout="vertical"
-                  margin={{ top: 20, right: 20, left: 10, bottom: 20 }}
-                >
-                  <CartesianGrid horizontal={false} stroke="var(--color-border)" />
-                  <XAxis type="number" stroke="var(--color-muted-foreground)" fontSize={11} />
-                  <YAxis
-                    type="category"
-                    dataKey="sector"
-                    stroke="var(--color-muted-foreground)"
-                    fontSize={12}
-                    width={10}
-                    tick={false}
-                    tickLine={false}
-                  />
-                  <Tooltip
-                    contentStyle={{
-                      background: "var(--color-paper-2)",
-                      border: "1px solid var(--color-border)",
-                      borderRadius: 12,
-                    }}
-                  />
-                  <Legend content={renderChartLegend} />
-                  <Bar
-                    dataKey="monthly"
-                    stackId="a"
-                    name="شهريات"
-                    fill="var(--color-sky)"
-                    radius={[0, 0, 0, 0]}
-                  />
-                  <Bar dataKey="study" stackId="a" name="مساعدات دراسية" fill="var(--color-teal)" />
-                  <Bar
-                    dataKey="therapeutic"
-                    stackId="a"
-                    name="مساعدات علاجية"
-                    fill="var(--color-chart-3)"
-                    radius={[0, 8, 8, 0]}
-                  />
-                </BarChart>
-              </ResponsiveContainer>
-            </div>
-          </article>
-
-          {/* Pie Chart (admins only) */}
+          <SectorBarChart
+            metrics={metrics}
+            editable
+            onEdit={() => metrics[0] && setEditing(metrics[0])}
+          />
           <HiddenFamiliesPieCard
             metric={scopedHiddenFamilies}
             editable
@@ -443,8 +379,8 @@ function Dashboard() {
           metrics={metrics}
           currentId={editing.id}
           onClose={() => setEditing(null)}
-          onSave={async (id, vals) => {
-            await saveMetric({ data: { id, ...vals } });
+          onSave={async (id, vals, description) => {
+            await saveMetric({ data: { id, ...vals, description } });
             toast.success("تم حفظ التعديلات");
             setEditing(null);
             reload();
@@ -457,11 +393,11 @@ function Dashboard() {
           metric={hiddenFamilies}
           title="الأسر المستترة"
           onClose={() => setEditingHidden(false)}
-          onSave={async (_id, vals) => {
+          onSave={async (_id, vals, description) => {
             if (hiddenPersisted && hiddenFamilies.id) {
-              await saveMetric({ data: { id: hiddenFamilies.id, ...vals } });
+              await saveMetric({ data: { id: hiddenFamilies.id, ...vals, description } });
             } else {
-              await saveHidden({ data: vals });
+              await saveHidden({ data: { ...vals, description } });
             }
             toast.success("تم حفظ التعديلات");
             setEditingHidden(false);
@@ -471,83 +407,6 @@ function Dashboard() {
       )}
     </div>
   );
-}
-
-function HiddenFamiliesPieCard({
-  metric,
-  editable,
-  onEdit,
-}: {
-  metric: Metric | null;
-  editable: boolean;
-  onEdit?: () => void;
-}) {
-  const pieData = metric
-    ? [
-        { name: "شهريات", value: Number(metric.monthly) },
-        { name: "مساعدات دراسية", value: Number(metric.study) },
-        { name: "مساعدات علاجية", value: Number(metric.therapeutic) },
-      ]
-    : [];
-
-  const PIE_COLORS = ["var(--color-sky)", "var(--color-teal)", "var(--color-chart-3)"];
-
-  return (
-    <article className="paper-card !p-4 sm:!p-6 min-w-0">
-      <div className="flex items-center justify-between gap-2 mb-4">
-        <h2 className="display text-sm text-muted-foreground min-w-0">الأسر المستترة</h2>
-        {editable && (
-          <button
-            onClick={onEdit}
-            className="shrink-0 flex items-center justify-center gap-1 min-h-11 min-w-11 px-2 rounded-full text-xs text-muted-foreground hover:text-primary hover:bg-primary/10 transition"
-          >
-            <Pencil size={12} /> تعديل
-          </button>
-        )}
-      </div>
-      <div className="h-[220px] sm:h-64">
-        <ResponsiveContainer>
-          <PieChart>
-            {/* Percentage radius so the pie shrinks with the card instead of overflowing on phones. */}
-            <Pie data={pieData} dataKey="value" nameKey="name" outerRadius="68%" label>
-              {pieData.map((_, i) => (
-                <Cell key={i} fill={PIE_COLORS[i]} />
-              ))}
-            </Pie>
-            <Legend content={renderChartLegend} />
-            <Tooltip />
-          </PieChart>
-        </ResponsiveContainer>
-      </div>
-    </article>
-  );
-}
-
-/** Recharts legend that wraps and centres instead of overflowing on narrow screens. */
-type ChartLegendPayloadItem = { value?: string; color?: string };
-
-function ChartLegend({ payload }: { payload?: ChartLegendPayloadItem[] }) {
-  if (!payload?.length) return null;
-  return (
-    <ul className="mt-2 flex flex-wrap items-center justify-center gap-x-4 gap-y-1.5">
-      {payload.map((item, i) => (
-        <li
-          key={`${item.value}-${i}`}
-          className="flex items-center gap-1.5 text-xs text-muted-foreground"
-        >
-          <span
-            className="size-2.5 shrink-0 rounded-[2px]"
-            style={{ backgroundColor: item.color }}
-          />
-          <span className="min-w-0">{item.value}</span>
-        </li>
-      ))}
-    </ul>
-  );
-}
-
-function renderChartLegend(props: { payload?: ChartLegendPayloadItem[] }) {
-  return <ChartLegend payload={props?.payload} />;
 }
 
 function formatAuditDate(iso: string) {
@@ -585,7 +444,11 @@ function QuickActionButton({
       to={to}
       search={search as any}
       onClick={(e) => {
-        if (role === "CLOTHES_MANAGER" || role === "TREASURER" || restricted.includes(role as any)) {
+        if (
+          role === "CLOTHES_MANAGER" ||
+          role === "TREASURER" ||
+          restricted.includes(role as any)
+        ) {
           e.preventDefault();
           toast.error("غير مصرح لك بهذا الحقل");
         }
@@ -619,13 +482,18 @@ function EditMetricDialog({
   currentId?: string;
   title?: string;
   onClose: () => void;
-  onSave: (id: string, v: { monthly: number; study: number; therapeutic: number }) => void;
+  onSave: (
+    id: string,
+    v: { monthly: number; study: number; therapeutic: number },
+    description: string,
+  ) => void;
 }) {
   const initial = metrics ? (metrics.find((m) => m.id === currentId) ?? metrics[0]) : metric!;
   const [selectedId, setSelectedId] = useState(initial.id);
   const [monthly, setMonthly] = useState(Number(initial.monthly));
   const [study, setStudy] = useState(Number(initial.study));
   const [therapeutic, setTherapeutic] = useState(Number(initial.therapeutic));
+  const [description, setDescription] = useState("");
 
   const showSelector = metrics && metrics.length > 1;
 
@@ -663,12 +531,31 @@ function EditMetricDialog({
           <Field label="مساعدات دراسية" value={study} onChange={setStudy} />
           <Field label="مساعدات علاجية" value={therapeutic} onChange={setTherapeutic} />
         </div>
+        <label className="block mt-3">
+          <span className="text-sm font-semibold text-muted-foreground">
+            ملاحظات / وصف التعديل <span className="text-destructive">*</span>
+          </span>
+          <textarea
+            value={description}
+            onChange={(e) => setDescription(e.target.value)}
+            className="mt-1 min-h-20 w-full rounded-xl bg-paper px-4 py-2 outline-none focus:ring-2 focus:ring-ring text-sm"
+            placeholder="سبب التعديل أو تفاصيل المستفيد / المستند"
+            maxLength={2000}
+            required
+          />
+        </label>
         <div className="flex gap-3 mt-6 justify-end">
           <button onClick={onClose} className="px-4 py-2 rounded-full bg-muted text-foreground">
             إلغاء
           </button>
           <button
-            onClick={() => onSave(selectedId, { monthly, study, therapeutic })}
+            onClick={() => {
+              if (!description.trim()) {
+                toast.error("برجاء إدخال ملاحظات / وصف الحركة");
+                return;
+              }
+              onSave(selectedId, { monthly, study, therapeutic }, description.trim());
+            }}
             className="chip-green px-6 py-2"
           >
             حفظ

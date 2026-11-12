@@ -87,30 +87,18 @@ function ClothesPage() {
     "TREASURER",
   ];
 
-  const isManager = role === "CLOTHES_MANAGER";
   const isRestricted = role ? clothesRestricted.includes(role) : false;
 
   useEffect(() => {
-    if (isManager) {
-      router.navigate({ to: "/clothes-manager" });
-      return;
-    }
     if (isRestricted) {
       toast.error("غير مصرح لك بهذا الحقل");
       router.navigate({ to: "/" });
     }
-  }, [isManager, isRestricted, router]);
+  }, [isRestricted, router]);
 
   if (loading) {
     return (
       <div className="text-center py-8 text-muted-foreground">جارٍ التحقق من الصلاحيات...</div>
-    );
-  }
-  if (isManager) {
-    return (
-      <div className="text-center py-8 text-muted-foreground">
-        جاري التوجيه إلى واجهة مسؤول الملابس...
-      </div>
     );
   }
   if (isRestricted) {

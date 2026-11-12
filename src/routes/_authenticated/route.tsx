@@ -1,8 +1,21 @@
-import { createFileRoute, Outlet, redirect, Link, useRouter } from "@tanstack/react-router";
+import {
+  createFileRoute,
+  Outlet,
+  redirect,
+  Link,
+  useRouter,
+  useRouterState,
+} from "@tanstack/react-router";
 import { supabase } from "@/integrations/supabase/client";
 import { ChurchLogo } from "@/components/church-logo";
 import { useAuth } from "@/hooks/use-auth";
-import { hasPermission, ROLE_LABEL, type Role } from "@/lib/permissions";
+import {
+  getHomeRouteForRole,
+  hasPermission,
+  resolvePrimaryRole,
+  ROLE_LABEL,
+  type Role,
+} from "@/lib/permissions";
 import {
   LogOut,
   LayoutDashboard,
@@ -21,7 +34,7 @@ import {
   ClipboardList,
   Wallet,
 } from "lucide-react";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import {
   DropdownMenu,
@@ -34,18 +47,41 @@ import {
 
 export const Route = createFileRoute("/_authenticated")({
   ssr: false,
-  beforeLoad: async () => {
+  beforeLoad: async ({ location }) => {
     const { data, error } = await supabase.auth.getUser();
     if (error || !data.user) throw redirect({ to: "/auth" });
+    const { data: roleRows, error: roleError } = await supabase
+      .from("user_roles")
+      .select("role")
+      .eq("user_id", data.user.id);
+    if (roleError) throw roleError;
+    const role = resolvePrimaryRole((roleRows ?? []).map((row) => row.role));
+    const homeRoute = getHomeRouteForRole(role);
+    if (
+      (role === "TREASURER" && location.pathname !== homeRoute) ||
+      (role === "CLOTHES_MANAGER" &&
+        location.pathname !== "/clothes" &&
+        location.pathname !== homeRoute)
+    ) {
+      throw redirect({ to: homeRoute });
+    }
     return { user: data.user };
   },
   component: AuthedLayout,
 });
 
 function AuthedLayout() {
-  const { role, user, can } = useAuth();
+  const { role, user, loading } = useAuth();
   const router = useRouter();
+  const pathname = useRouterState({ select: (state) => state.location.pathname });
   const [mobileOpen, setMobileOpen] = useState(false);
+
+  useEffect(() => {
+    if (loading || (role !== "CLOTHES_MANAGER" && role !== "TREASURER")) return;
+    const homeRoute = getHomeRouteForRole(role);
+    const allowedClothesRoute = role === "CLOTHES_MANAGER" && pathname === "/clothes";
+    if (!allowedClothesRoute && pathname !== homeRoute) router.navigate({ to: homeRoute });
+  }, [loading, pathname, role, router]);
 
   async function signOut() {
     await supabase.auth.signOut();
@@ -80,111 +116,126 @@ function AuthedLayout() {
 
           {/* Desktop nav — all items visible to all roles */}
           <nav className="hidden lg:flex items-center gap-1 text-sm me-auto">
-            <NavLink to="/" icon={<LayoutDashboard size={16} />} label="الرئيسية" />
-            <NavLink to="/search" icon={<Search size={16} />} label="البحث" />
-            <NavLink to="/add" icon={<UserPlus size={16} />} label="إضافة مخدوم" />
+            {role === "CLOTHES_MANAGER" ? (
+              <>
+                <NavLink to="/clothes" icon={<Shirt size={16} />} label="ملابس الأعياد والمدارس" />
+                <NavLink
+                  to="/clothes-manager"
+                  icon={<ClipboardList size={16} />}
+                  label="مسؤول ملابس الأعياد والمدارس"
+                />
+              </>
+            ) : role === "TREASURER" ? (
+              <NavLink to="/treasury" icon={<Wallet size={16} />} label="الخزنة وصندوق الخدمة" />
+            ) : (
+              <>
+                <NavLink to="/" icon={<LayoutDashboard size={16} />} label="الرئيسية" />
+                <NavLink to="/search" icon={<Search size={16} />} label="البحث" />
+                <NavLink to="/add" icon={<UserPlus size={16} />} label="إضافة مخدوم" />
 
-            {/* Services dropdown — visible to all */}
-            <DropdownMenu>
-              <DropdownMenuTrigger className="flex items-center gap-2 px-4 py-2 rounded-full text-foreground/80 hover:bg-primary/10 hover:text-primary transition font-semibold text-sm cursor-pointer outline-none">
-                <Package size={16} />
-                الخدمات والأنشطة
-                <ChevronDown size={14} />
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="start" className="min-w-[220px]">
-                <DropdownMenuLabel className="text-muted-foreground text-xs">
-                  الخدمات والأنشطة
-                </DropdownMenuLabel>
-                <DropdownMenuSeparator />
-                <DropdownMenuItem asChild>
-                  <Link
-                    to="/blessing-distribution"
-                    onClick={(e) => handleForbiddenNav(e, "/blessing-distribution")}
-                    className="flex items-center gap-2 cursor-pointer"
-                  >
-                    <CheckSquare size={16} /> توزيع البركة
-                  </Link>
-                </DropdownMenuItem>
-                <DropdownMenuItem asChild>
-                  <Link
-                    to="/clothes"
-                    onClick={(e) => handleForbiddenNav(e, "/clothes")}
-                    className="flex items-center gap-2 cursor-pointer"
-                  >
-                    <Shirt size={16} /> ملابس الأعياد والمدارس
-                  </Link>
-                </DropdownMenuItem>
-                <DropdownMenuItem asChild>
-                  <Link
-                    to="/clothes-manager"
-                    onClick={(e) => handleForbiddenNav(e, "/clothes-manager")}
-                    className="flex items-center gap-2 cursor-pointer"
-                  >
-                    <ClipboardList size={16} /> مسؤول ملابس الأعياد والمدارس
-                  </Link>
-                </DropdownMenuItem>
-                <DropdownMenuItem asChild>
-                  <Link
-                    to="/furniture"
-                    onClick={(e) => handleForbiddenNav(e, "/furniture")}
-                    className="flex items-center gap-2 cursor-pointer"
-                  >
-                    <Sofa size={16} /> الأجهزة والأثاث
-                  </Link>
-                </DropdownMenuItem>
-                <DropdownMenuItem asChild>
-                  <Link
-                    to="/pharmacy"
-                    onClick={(e) => handleForbiddenNav(e, "/pharmacy")}
-                    className="flex items-center gap-2 cursor-pointer"
-                  >
-                    <Pill size={16} /> الصيدلية
-                  </Link>
-                </DropdownMenuItem>
-                <DropdownMenuItem asChild>
-                  <Link
-                    to="/inventory"
-                    onClick={(e) => handleForbiddenNav(e, "/inventory")}
-                    className="flex items-center gap-2 cursor-pointer"
-                  >
-                    <Package size={16} /> المخزن
-                  </Link>
-                </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
+                {/* Services dropdown — visible to all */}
+                <DropdownMenu>
+                  <DropdownMenuTrigger className="flex items-center gap-2 px-4 py-2 rounded-full text-foreground/80 hover:bg-primary/10 hover:text-primary transition font-semibold text-sm cursor-pointer outline-none">
+                    <Package size={16} />
+                    الخدمات والأنشطة
+                    <ChevronDown size={14} />
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="start" className="min-w-[220px]">
+                    <DropdownMenuLabel className="text-muted-foreground text-xs">
+                      الخدمات والأنشطة
+                    </DropdownMenuLabel>
+                    <DropdownMenuSeparator />
+                    <DropdownMenuItem asChild>
+                      <Link
+                        to="/blessing-distribution"
+                        onClick={(e) => handleForbiddenNav(e, "/blessing-distribution")}
+                        className="flex items-center gap-2 cursor-pointer"
+                      >
+                        <CheckSquare size={16} /> توزيع البركة
+                      </Link>
+                    </DropdownMenuItem>
+                    <DropdownMenuItem asChild>
+                      <Link
+                        to="/clothes"
+                        onClick={(e) => handleForbiddenNav(e, "/clothes")}
+                        className="flex items-center gap-2 cursor-pointer"
+                      >
+                        <Shirt size={16} /> ملابس الأعياد والمدارس
+                      </Link>
+                    </DropdownMenuItem>
+                    <DropdownMenuItem asChild>
+                      <Link
+                        to="/clothes-manager"
+                        onClick={(e) => handleForbiddenNav(e, "/clothes-manager")}
+                        className="flex items-center gap-2 cursor-pointer"
+                      >
+                        <ClipboardList size={16} /> مسؤول ملابس الأعياد والمدارس
+                      </Link>
+                    </DropdownMenuItem>
+                    <DropdownMenuItem asChild>
+                      <Link
+                        to="/furniture"
+                        onClick={(e) => handleForbiddenNav(e, "/furniture")}
+                        className="flex items-center gap-2 cursor-pointer"
+                      >
+                        <Sofa size={16} /> الأجهزة والأثاث
+                      </Link>
+                    </DropdownMenuItem>
+                    <DropdownMenuItem asChild>
+                      <Link
+                        to="/pharmacy"
+                        onClick={(e) => handleForbiddenNav(e, "/pharmacy")}
+                        className="flex items-center gap-2 cursor-pointer"
+                      >
+                        <Pill size={16} /> الصيدلية
+                      </Link>
+                    </DropdownMenuItem>
+                    <DropdownMenuItem asChild>
+                      <Link
+                        to="/inventory"
+                        onClick={(e) => handleForbiddenNav(e, "/inventory")}
+                        className="flex items-center gap-2 cursor-pointer"
+                      >
+                        <Package size={16} /> المخزن
+                      </Link>
+                    </DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
 
-            {/* Admin dropdown — visible to all */}
-            <DropdownMenu>
-              <DropdownMenuTrigger className="flex items-center gap-2 px-4 py-2 rounded-full text-foreground/80 hover:bg-primary/10 hover:text-primary transition font-semibold text-sm cursor-pointer outline-none">
-                <History size={16} />
-                الإدارة والمالية
-                <ChevronDown size={14} />
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="start" className="min-w-[200px]">
-                <DropdownMenuLabel className="text-muted-foreground text-xs">
-                  الإدارة والمالية
-                </DropdownMenuLabel>
-                <DropdownMenuSeparator />
-                <DropdownMenuItem asChild>
-                  <Link
-                    to="/audit"
-                    onClick={(e) => handleForbiddenNav(e, "/audit")}
-                    className="flex items-center gap-2 cursor-pointer"
-                  >
-                    <History size={16} /> السجل
-                  </Link>
-                </DropdownMenuItem>
-                <DropdownMenuItem asChild>
-                  <Link
-                    to="/treasury"
-                    onClick={(e) => handleForbiddenNav(e, "/treasury")}
-                    className="flex items-center gap-2 cursor-pointer"
-                  >
-                    <Wallet size={16} /> الخزنة وصندوق الخدمة
-                  </Link>
-                </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
+                {/* Admin dropdown — visible to all */}
+                <DropdownMenu>
+                  <DropdownMenuTrigger className="flex items-center gap-2 px-4 py-2 rounded-full text-foreground/80 hover:bg-primary/10 hover:text-primary transition font-semibold text-sm cursor-pointer outline-none">
+                    <History size={16} />
+                    الإدارة والمالية
+                    <ChevronDown size={14} />
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="start" className="min-w-[200px]">
+                    <DropdownMenuLabel className="text-muted-foreground text-xs">
+                      الإدارة والمالية
+                    </DropdownMenuLabel>
+                    <DropdownMenuSeparator />
+                    <DropdownMenuItem asChild>
+                      <Link
+                        to="/audit"
+                        onClick={(e) => handleForbiddenNav(e, "/audit")}
+                        className="flex items-center gap-2 cursor-pointer"
+                      >
+                        <History size={16} /> السجل
+                      </Link>
+                    </DropdownMenuItem>
+                    <DropdownMenuItem asChild>
+                      <Link
+                        to="/treasury"
+                        onClick={(e) => handleForbiddenNav(e, "/treasury")}
+                        className="flex items-center gap-2 cursor-pointer"
+                      >
+                        <Wallet size={16} /> الخزنة وصندوق الخدمة
+                      </Link>
+                    </DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              </>
+            )}
           </nav>
 
           {/* Mobile menu toggle */}
@@ -218,80 +269,106 @@ function AuthedLayout() {
         {/* Mobile nav dropdown — all items visible to all roles */}
         {mobileOpen && (
           <nav className="lg:hidden border-t border-border/40 bg-paper/95 backdrop-blur px-4 py-4 space-y-1 max-h-[80dvh] overflow-y-auto overscroll-contain">
-            <MobileNavLink
-              to="/"
-              icon={<LayoutDashboard size={18} />}
-              label="الرئيسية"
-              onClick={() => setMobileOpen(false)}
-            />
-            <MobileNavLink
-              to="/search"
-              icon={<Search size={18} />}
-              label="البحث"
-              onClick={() => setMobileOpen(false)}
-            />
-            <MobileNavLink
-              to="/add"
-              icon={<UserPlus size={18} />}
-              label="إضافة مخدوم"
-              onClick={() => setMobileOpen(false)}
-            />
-            <>
-              <div className="border-t border-border/40 my-2" />
-              <p className="text-xs text-muted-foreground px-3 py-1">الخدمات والأنشطة</p>
-              <MobileNavLink
-                to="/blessing-distribution"
-                icon={<CheckSquare size={18} />}
-                label="توزيع البركة"
-                onClick={() => setMobileOpen(false)}
-              />
-              <MobileNavLink
-                to="/clothes"
-                icon={<Shirt size={18} />}
-                label="ملابس الأعياد والمدارس"
-                onClick={() => setMobileOpen(false)}
-              />
-              <MobileNavLink
-                to="/clothes-manager"
-                icon={<ClipboardList size={18} />}
-                label="مسؤول ملابس الأعياد والمدارس"
-                onClick={() => setMobileOpen(false)}
-              />
-              <MobileNavLink
-                to="/furniture"
-                icon={<Sofa size={18} />}
-                label="الأجهزة والأثاث"
-                onClick={() => setMobileOpen(false)}
-              />
-              <MobileNavLink
-                to="/pharmacy"
-                icon={<Pill size={18} />}
-                label="الصيدلية"
-                onClick={() => setMobileOpen(false)}
-              />
-              <MobileNavLink
-                to="/inventory"
-                icon={<Package size={18} />}
-                label="المخزن"
-                onClick={() => setMobileOpen(false)}
-              />
-            </>
-            <>
-              <div className="border-t border-border/40 my-2" />
-              <p className="text-xs text-muted-foreground px-3 py-1">الإدارة والمالية</p>
-              <MobileNavLink
-                to="/audit"
-                icon={<History size={18} />}
-                label="السجل"
-                onClick={() => setMobileOpen(false)}
-              />
+            {role === "CLOTHES_MANAGER" ? (
+              <>
+                <MobileNavLink
+                  to="/clothes"
+                  icon={<Shirt size={18} />}
+                  label="ملابس الأعياد والمدارس"
+                  onClick={() => setMobileOpen(false)}
+                />
+                <MobileNavLink
+                  to="/clothes-manager"
+                  icon={<ClipboardList size={18} />}
+                  label="مسؤول ملابس الأعياد والمدارس"
+                  onClick={() => setMobileOpen(false)}
+                />
+              </>
+            ) : role === "TREASURER" ? (
               <MobileNavLink
                 to="/treasury"
                 icon={<Wallet size={18} />}
                 label="الخزنة وصندوق الخدمة"
                 onClick={() => setMobileOpen(false)}
               />
-            </>
+            ) : (
+              <>
+                <MobileNavLink
+                  to="/"
+                  icon={<LayoutDashboard size={18} />}
+                  label="الرئيسية"
+                  onClick={() => setMobileOpen(false)}
+                />
+                <MobileNavLink
+                  to="/search"
+                  icon={<Search size={18} />}
+                  label="البحث"
+                  onClick={() => setMobileOpen(false)}
+                />
+                <MobileNavLink
+                  to="/add"
+                  icon={<UserPlus size={18} />}
+                  label="إضافة مخدوم"
+                  onClick={() => setMobileOpen(false)}
+                />
+                <>
+                  <div className="border-t border-border/40 my-2" />
+                  <p className="text-xs text-muted-foreground px-3 py-1">الخدمات والأنشطة</p>
+                  <MobileNavLink
+                    to="/blessing-distribution"
+                    icon={<CheckSquare size={18} />}
+                    label="توزيع البركة"
+                    onClick={() => setMobileOpen(false)}
+                  />
+                  <MobileNavLink
+                    to="/clothes"
+                    icon={<Shirt size={18} />}
+                    label="ملابس الأعياد والمدارس"
+                    onClick={() => setMobileOpen(false)}
+                  />
+                  <MobileNavLink
+                    to="/clothes-manager"
+                    icon={<ClipboardList size={18} />}
+                    label="مسؤول ملابس الأعياد والمدارس"
+                    onClick={() => setMobileOpen(false)}
+                  />
+                  <MobileNavLink
+                    to="/furniture"
+                    icon={<Sofa size={18} />}
+                    label="الأجهزة والأثاث"
+                    onClick={() => setMobileOpen(false)}
+                  />
+                  <MobileNavLink
+                    to="/pharmacy"
+                    icon={<Pill size={18} />}
+                    label="الصيدلية"
+                    onClick={() => setMobileOpen(false)}
+                  />
+                  <MobileNavLink
+                    to="/inventory"
+                    icon={<Package size={18} />}
+                    label="المخزن"
+                    onClick={() => setMobileOpen(false)}
+                  />
+                </>
+                <>
+                  <div className="border-t border-border/40 my-2" />
+                  <p className="text-xs text-muted-foreground px-3 py-1">الإدارة والمالية</p>
+                  <MobileNavLink
+                    to="/audit"
+                    icon={<History size={18} />}
+                    label="السجل"
+                    onClick={() => setMobileOpen(false)}
+                  />
+                  <MobileNavLink
+                    to="/treasury"
+                    icon={<Wallet size={18} />}
+                    label="الخزنة وصندوق الخدمة"
+                    onClick={() => setMobileOpen(false)}
+                  />
+                </>
+              </>
+            )}
 
             {/* Signed-in user + sign out, repeated in the panel for phones */}
             <div className="border-t border-border/40 mt-3 pt-3 flex items-center gap-3">
@@ -323,7 +400,7 @@ function isRouteForbidden(role: string | null, to: string): boolean {
   // Exclusive clothes manager: only its dedicated screen is allowed. This is
   // checked before the "/" allowance so it is redirected away from the
   // dashboard (treasury/financials) as well.
-  if (role === "CLOTHES_MANAGER") return to !== "/clothes-manager";
+  if (role === "CLOTHES_MANAGER") return to !== "/clothes-manager" && to !== "/clothes";
   // Exclusive treasurer: the financial dashboard is the only allowed screen.
   if (role === "TREASURER") return to !== "/treasury";
   if (to === "/") return false;
@@ -333,8 +410,7 @@ function isRouteForbidden(role: string | null, to: string): boolean {
     "FURNITURE_WAREHOUSE_MANAGER",
     "PHARMACY_WAREHOUSE_MANAGER",
   ];
-  if (FS.includes(role))
-    return ["/inventory", "/audit", "/clothes-manager"].includes(to);
+  if (FS.includes(role)) return ["/inventory", "/audit", "/clothes-manager"].includes(to);
   if (role === "BRIDE_AND_MEDICAL_AIDS_MANAGER") return to !== "/search";
   if (role === "BLESSING_DISTRIBUTOR") return to !== "/blessing-distribution";
   if (role === "SUPPLY_WAREHOUSE_MANAGER") return to !== "/inventory";
