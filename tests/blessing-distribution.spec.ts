@@ -72,7 +72,9 @@ test.describe('Blessing distribution (BLESSING_DISTRIBUTOR)', () => {
       await page.getByPlaceholder('User ID').fill(email);
       await page.getByPlaceholder('Password').fill(password);
       await page.getByRole('button', { name: 'تسجيل الدخول' }).click();
-      await page.waitForURL(/\/(search|$)/, { timeout: 45_000 });
+      // The distributor is a single-workspace role and lands directly on its
+      // dedicated blessing-distribution screen after login.
+      await page.waitForURL(/\/blessing-distribution$/, { timeout: 45_000 });
 
       // 6) Open blessing distribution and pick the family.
       await page.goto('/blessing-distribution');

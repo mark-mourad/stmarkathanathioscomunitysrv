@@ -20,7 +20,11 @@ import {
   Pill,
 } from "lucide-react";
 import { toast } from "sonner";
-import { getFamilyScopeForRole, getHomeRouteForRole } from "@/lib/permissions";
+import {
+  getFamilyScopeForRole,
+  getHomeRouteForRole,
+  isSingleWorkspaceRole,
+} from "@/lib/permissions";
 import { FinancialCharts, FinancialSummaryCards } from "@/components/financial-overview";
 
 export const Route = createFileRoute("/_authenticated/")({
@@ -46,7 +50,7 @@ type AuditEntry = {
 };
 
 function Dashboard() {
-  const { role, can, isAdmin, isFamilyServant } = useAuth();
+  const { role, can, isAdmin, isFamilyServant, loading } = useAuth();
   const router = useRouter();
   const fetchDashboard = useServerFn(getDashboard);
   const fetchAudit = useServerFn(getAuditLog);
@@ -74,12 +78,13 @@ function Dashboard() {
     if (isAdmin || isFamilyServant) reload();
   }, [isAdmin, isFamilyServant]);
 
-  // Exclusive roles have their own dedicated screens.
+  // Single-purpose managers have their own dedicated screens; never render the
+  // general dashboard for them.
   useEffect(() => {
-    if (role === "CLOTHES_MANAGER" || role === "TREASURER") {
+    if (!loading && isSingleWorkspaceRole(role)) {
       router.navigate({ to: getHomeRouteForRole(role) });
     }
-  }, [role]);
+  }, [loading, role, router]);
 
   // STRICT client-side mapping guard: a family servant may only ever render the
   // EXACT sector mapped to their role. Any stray/leaked row is discarded here.
@@ -91,7 +96,7 @@ function Dashboard() {
       : [];
   const scopedHiddenFamilies = isAdmin ? hiddenFamilies : null;
 
-  if (role === "CLOTHES_MANAGER" || role === "TREASURER") {
+  if (isSingleWorkspaceRole(role)) {
     return (
       <div className="text-center py-8 text-muted-foreground">
         جاري التوجيه إلى الواجهة المخصصة...
@@ -172,11 +177,7 @@ function Dashboard() {
         <QuickActionButton
           to="/furniture"
           icon={<Sofa size={16} />}
-          label={
-            role === "FURNITURE_WAREHOUSE_MANAGER"
-              ? "إدارة مخزن الأجهزة والأثاث"
-              : "طلب الأجهزة والأثاث"
-          }
+          label="طلب الأجهزة والأثاث"
           color="dark"
           restricted={[
             "SUPPLY_WAREHOUSE_MANAGER",
@@ -189,7 +190,7 @@ function Dashboard() {
         <QuickActionButton
           to="/pharmacy"
           icon={<Pill size={16} />}
-          label={role === "PHARMACY_WAREHOUSE_MANAGER" ? "إدارة مخزن الصيدلية" : "الصيدلية"}
+          label="الصيدلية"
           color="dark"
           restricted={[
             "SUPPLY_WAREHOUSE_MANAGER",
@@ -202,7 +203,7 @@ function Dashboard() {
         <QuickActionButton
           to="/inventory"
           icon={<Package size={16} />}
-          label={role === "SUPPLY_WAREHOUSE_MANAGER" ? "إدارة مخزن التموين" : "المخزن"}
+          label="المخزن"
           color="dark"
           restricted={[
             "ST_MATTHEW",

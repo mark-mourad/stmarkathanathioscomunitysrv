@@ -181,14 +181,74 @@ export function isTreasurer(role: Role | null): boolean {
 }
 
 /**
- * Landing route for exclusive roles. The treasurer must never land on the
- * general dashboard (beneficiary/treasury mix) and the clothes manager must
- * never land on the financial dashboard.
+ * Roles that own a dedicated, single-purpose workspace. They must never land on
+ * the general dashboard ("/") and should only see their own workspace in the
+ * navigation bar.
  */
-export function getHomeRouteForRole(role: Role | null): "/" | "/clothes-manager" | "/treasury" {
-  if (role === "CLOTHES_MANAGER") return "/clothes-manager";
-  if (role === "TREASURER") return "/treasury";
-  return "/";
+export const SINGLE_WORKSPACE_ROLES = [
+  "CLOTHES_MANAGER",
+  "TREASURER",
+  "FURNITURE_WAREHOUSE_MANAGER",
+  "BLESSING_DISTRIBUTOR",
+  "SUPPLY_WAREHOUSE_MANAGER",
+  "PHARMACY_WAREHOUSE_MANAGER",
+] as const satisfies readonly Role[];
+
+export type SingleWorkspaceRole = (typeof SINGLE_WORKSPACE_ROLES)[number];
+
+export type HomeRoute =
+  | "/"
+  | "/clothes"
+  | "/clothes-manager"
+  | "/treasury"
+  | "/furniture"
+  | "/blessing-distribution"
+  | "/inventory"
+  | "/pharmacy";
+
+export function isSingleWorkspaceRole(role: Role | null): role is SingleWorkspaceRole {
+  return role !== null && (SINGLE_WORKSPACE_ROLES as readonly Role[]).includes(role);
+}
+
+/**
+ * Landing route for dedicated workspaces. Single-purpose managers must never
+ * land on the general dashboard; admins and family servants stay on "/".
+ */
+export function getHomeRouteForRole(role: Role | null): HomeRoute {
+  switch (role) {
+    case "CLOTHES_MANAGER":
+      return "/clothes-manager";
+    case "TREASURER":
+      return "/treasury";
+    case "FURNITURE_WAREHOUSE_MANAGER":
+      return "/furniture";
+    case "BLESSING_DISTRIBUTOR":
+      return "/blessing-distribution";
+    case "SUPPLY_WAREHOUSE_MANAGER":
+      return "/inventory";
+    case "PHARMACY_WAREHOUSE_MANAGER":
+      return "/pharmacy";
+    default:
+      return "/";
+  }
+}
+
+/**
+ * Routes a single-workspace role may visit. Returns `null` when the role is not
+ * restricted (admins, family servants, and read-only roles).
+ */
+export function getAllowedRoutesForRole(role: Role | null): readonly HomeRoute[] | null {
+  if (!isSingleWorkspaceRole(role)) return null;
+  const home = getHomeRouteForRole(role);
+  // The clothes manager keeps its request screen alongside the manager screen.
+  if (role === "CLOTHES_MANAGER") return [home, "/clothes"];
+  return [home];
+}
+
+export function isRouteAllowedForRole(role: Role | null, pathname: string): boolean {
+  const allowed = getAllowedRoutesForRole(role);
+  if (!allowed) return true;
+  return allowed.some((route) => route === pathname);
 }
 
 /** Canonical saint-family values stored in `individuals.saint_family`. */

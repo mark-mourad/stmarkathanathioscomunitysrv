@@ -899,7 +899,7 @@ export const getAuditLog = createServerFn({ method: "GET" })
     requirePermission(context, "view:audit");
     const { data, error } = await context.supabase
       .from("audit_log")
-      .select("id, user_email, action, table_name, record_id, created_at")
+      .select("*")
       .order("created_at", { ascending: false })
       .limit(200);
     if (error) throw new Error(error.message);

@@ -12,8 +12,11 @@ import { useAuth } from "@/hooks/use-auth";
 import {
   getHomeRouteForRole,
   hasPermission,
+  isRouteAllowedForRole,
+  isSingleWorkspaceRole,
   resolvePrimaryRole,
   ROLE_LABEL,
+  type HomeRoute,
   type Role,
 } from "@/lib/permissions";
 import {
@@ -33,6 +36,7 @@ import {
   Warehouse,
   ClipboardList,
   Wallet,
+  type LucideIcon,
 } from "lucide-react";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
@@ -45,6 +49,37 @@ import {
   DropdownMenuLabel,
 } from "@/components/ui/dropdown-menu";
 
+type WorkspaceNavItem = {
+  to: HomeRoute;
+  label: string;
+  icon: LucideIcon;
+};
+
+/**
+ * Dedicated navigation for single-purpose managers. When a role has an entry
+ * here, the navbar renders ONLY these links (plus profile/logout) so managers
+ * never see dead links that trigger the "غير مصرح لك" message.
+ */
+const WORKSPACE_NAV: Partial<Record<Role, WorkspaceNavItem[]>> = {
+  CLOTHES_MANAGER: [
+    { to: "/clothes", label: "ملابس الأعياد والمدارس", icon: Shirt },
+    { to: "/clothes-manager", label: "مسؤول ملابس الأعياد والمدارس", icon: ClipboardList },
+  ],
+  TREASURER: [{ to: "/treasury", label: "الخزنة وصندوق الخدمة", icon: Wallet }],
+  FURNITURE_WAREHOUSE_MANAGER: [
+    { to: "/furniture", label: "إدارة مخزن الأجهزة والأثاث", icon: Sofa },
+  ],
+  BLESSING_DISTRIBUTOR: [
+    { to: "/blessing-distribution", label: "إدارة توزيع البركة", icon: CheckSquare },
+  ],
+  SUPPLY_WAREHOUSE_MANAGER: [
+    { to: "/inventory", label: "إدارة مخزن التموين", icon: Package },
+  ],
+  PHARMACY_WAREHOUSE_MANAGER: [
+    { to: "/pharmacy", label: "إدارة مخزن الصيدلية", icon: Pill },
+  ],
+};
+
 export const Route = createFileRoute("/_authenticated")({
   ssr: false,
   beforeLoad: async ({ location }) => {
@@ -56,14 +91,10 @@ export const Route = createFileRoute("/_authenticated")({
       .eq("user_id", data.user.id);
     if (roleError) throw roleError;
     const role = resolvePrimaryRole((roleRows ?? []).map((row) => row.role));
-    const homeRoute = getHomeRouteForRole(role);
-    if (
-      (role === "TREASURER" && location.pathname !== homeRoute) ||
-      (role === "CLOTHES_MANAGER" &&
-        location.pathname !== "/clothes" &&
-        location.pathname !== homeRoute)
-    ) {
-      throw redirect({ to: homeRoute });
+    // Single-purpose managers are confined to their dedicated workspace. This
+    // also handles login (auth redirects to "/") and any direct URL attempt.
+    if (!isRouteAllowedForRole(role, location.pathname)) {
+      throw redirect({ to: getHomeRouteForRole(role) });
     }
     return { user: data.user };
   },
@@ -77,11 +108,13 @@ function AuthedLayout() {
   const [mobileOpen, setMobileOpen] = useState(false);
 
   useEffect(() => {
-    if (loading || (role !== "CLOTHES_MANAGER" && role !== "TREASURER")) return;
-    const homeRoute = getHomeRouteForRole(role);
-    const allowedClothesRoute = role === "CLOTHES_MANAGER" && pathname === "/clothes";
-    if (!allowedClothesRoute && pathname !== homeRoute) router.navigate({ to: homeRoute });
+    if (loading || !isSingleWorkspaceRole(role)) return;
+    if (!isRouteAllowedForRole(role, pathname)) {
+      router.navigate({ to: getHomeRouteForRole(role) });
+    }
   }, [loading, pathname, role, router]);
+
+  const workspaceNav = role ? WORKSPACE_NAV[role] : undefined;
 
   async function signOut() {
     await supabase.auth.signOut();
@@ -115,26 +148,21 @@ function AuthedLayout() {
             </div>
           </Link>
 
-          {/* Desktop nav — all items visible to all roles */}
+          {/* Desktop nav — single-purpose managers only see their own workspace */}
           <nav className="hidden lg:flex items-center gap-1 text-sm me-auto">
-            {role === "CLOTHES_MANAGER" ? (
+            {loading ? null : workspaceNav ? (
               <>
-                <NavLink to="/clothes" icon={<Shirt size={16} />} label="ملابس الأعياد والمدارس" />
-                <NavLink
-                  to="/clothes-manager"
-                  icon={<ClipboardList size={16} />}
-                  label="مسؤول ملابس الأعياد والمدارس"
-                />
+                {workspaceNav.map(({ to, label, icon: Icon }) => (
+                  <NavLink key={to} to={to} icon={<Icon size={16} />} label={label} />
+                ))}
               </>
-            ) : role === "TREASURER" ? (
-              <NavLink to="/treasury" icon={<Wallet size={16} />} label="الخزنة وصندوق الخدمة" />
             ) : (
               <>
                 <NavLink to="/" icon={<LayoutDashboard size={16} />} label="الرئيسية" />
                 <NavLink to="/search" icon={<Search size={16} />} label="البحث" />
                 <NavLink to="/add" icon={<UserPlus size={16} />} label="إضافة مخدوم" />
 
-                {/* Services dropdown — visible to all */}
+                {/* Services dropdown — general/multi-role users only */}
                 <DropdownMenu>
                   <DropdownMenuTrigger className="flex items-center gap-2 px-4 py-2 rounded-full text-foreground/80 hover:bg-primary/10 hover:text-primary transition font-semibold text-sm cursor-pointer outline-none">
                     <Package size={16} />
@@ -203,7 +231,7 @@ function AuthedLayout() {
                   </DropdownMenuContent>
                 </DropdownMenu>
 
-                {/* Admin dropdown — visible to all */}
+                {/* Admin dropdown — general/multi-role users only */}
                 <DropdownMenu>
                   <DropdownMenuTrigger className="flex items-center gap-2 px-4 py-2 rounded-full text-foreground/80 hover:bg-primary/10 hover:text-primary transition font-semibold text-sm cursor-pointer outline-none">
                     <History size={16} />
@@ -269,31 +297,21 @@ function AuthedLayout() {
           </div>
         </div>
 
-        {/* Mobile nav dropdown — all items visible to all roles */}
+        {/* Mobile nav dropdown — single-purpose managers only see their own workspace */}
         {mobileOpen && (
           <nav className="lg:hidden border-t border-border/40 bg-paper/95 backdrop-blur px-4 py-4 space-y-1 max-h-[80dvh] overflow-y-auto overscroll-contain">
-            {role === "CLOTHES_MANAGER" ? (
+            {loading ? null : workspaceNav ? (
               <>
-                <MobileNavLink
-                  to="/clothes"
-                  icon={<Shirt size={18} />}
-                  label="ملابس الأعياد والمدارس"
-                  onClick={() => setMobileOpen(false)}
-                />
-                <MobileNavLink
-                  to="/clothes-manager"
-                  icon={<ClipboardList size={18} />}
-                  label="مسؤول ملابس الأعياد والمدارس"
-                  onClick={() => setMobileOpen(false)}
-                />
+                {workspaceNav.map(({ to, label, icon: Icon }) => (
+                  <MobileNavLink
+                    key={to}
+                    to={to}
+                    icon={<Icon size={18} />}
+                    label={label}
+                    onClick={() => setMobileOpen(false)}
+                  />
+                ))}
               </>
-            ) : role === "TREASURER" ? (
-              <MobileNavLink
-                to="/treasury"
-                icon={<Wallet size={18} />}
-                label="الخزنة وصندوق الخدمة"
-                onClick={() => setMobileOpen(false)}
-              />
             ) : (
               <>
                 <MobileNavLink
@@ -402,28 +420,17 @@ function AuthedLayout() {
 
 function isRouteForbidden(role: string | null, to: string): boolean {
   if (!role || role === "SUPER_ADMIN" || role === "ADMIN") return false;
+  // Single-purpose managers are confined to their own workspace route(s).
+  if (isSingleWorkspaceRole(role as Role)) {
+    return !isRouteAllowedForRole(role as Role, to);
+  }
   // Treasury is restricted to the exclusive treasurer role (admins already
   // returned above). Every other role sees read-only family totals on "/".
-  if (to === "/treasury") return role !== "TREASURER";
-  // Exclusive clothes manager: only its dedicated screen is allowed. This is
-  // checked before the "/" allowance so it is redirected away from the
-  // dashboard (treasury/financials) as well.
-  if (role === "CLOTHES_MANAGER") return to !== "/clothes-manager" && to !== "/clothes";
-  // Exclusive treasurer: the financial dashboard is the only allowed screen.
-  if (role === "TREASURER") return to !== "/treasury";
+  if (to === "/treasury") return true;
   if (to === "/") return false;
   const FS: string[] = ["ST_MATTHEW", "ST_MARK", "ST_JOHN", "ST_LUKE", "ST_HIDDEN_FAMILIES"];
-  const WH: string[] = [
-    "SUPPLY_WAREHOUSE_MANAGER",
-    "FURNITURE_WAREHOUSE_MANAGER",
-    "PHARMACY_WAREHOUSE_MANAGER",
-  ];
   if (FS.includes(role)) return ["/inventory", "/audit", "/clothes-manager"].includes(to);
   if (role === "BRIDE_AND_MEDICAL_AIDS_MANAGER") return to !== "/search";
-  if (role === "BLESSING_DISTRIBUTOR") return to !== "/blessing-distribution";
-  if (role === "SUPPLY_WAREHOUSE_MANAGER") return to !== "/inventory";
-  if (role === "FURNITURE_WAREHOUSE_MANAGER") return to !== "/furniture";
-  if (role === "PHARMACY_WAREHOUSE_MANAGER") return to !== "/pharmacy";
   return true;
 }
 

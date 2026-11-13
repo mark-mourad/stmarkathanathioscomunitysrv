@@ -676,6 +676,7 @@ export interface Database {
           action: string;
           table_name: string;
           record_id: string | null;
+          entity_label: string | null;
           changes: Json | null;
           created_at: string;
         };
@@ -686,6 +687,7 @@ export interface Database {
           action: string;
           table_name: string;
           record_id?: string | null;
+          entity_label?: string | null;
           changes?: Json | null;
           created_at?: string;
         };
@@ -696,6 +698,7 @@ export interface Database {
           action?: string;
           table_name?: string;
           record_id?: string | null;
+          entity_label?: string | null;
           changes?: Json | null;
           created_at?: string;
         };
