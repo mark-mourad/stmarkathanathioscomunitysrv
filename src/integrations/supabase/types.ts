@@ -354,7 +354,8 @@ export interface Database {
       treasury_transactions: {
         Row: {
           id: string;
-          saint_family: string;
+          saint_family: string | null;
+          recipient_name: string | null;
           transaction_date: string;
           transaction_type: string;
           category: string;
@@ -362,12 +363,15 @@ export interface Database {
           description: string | null;
           reference: string | null;
           created_by: string | null;
+          created_by_email: string | null;
+          affects_metric: boolean;
           created_at: string;
           updated_at: string;
         };
         Insert: {
           id?: string;
-          saint_family: string;
+          saint_family?: string | null;
+          recipient_name?: string | null;
           transaction_date?: string;
           transaction_type: string;
           category: string;
@@ -375,12 +379,15 @@ export interface Database {
           description?: string | null;
           reference?: string | null;
           created_by?: string | null;
+          created_by_email?: string | null;
+          affects_metric?: boolean;
           created_at?: string;
           updated_at?: string;
         };
         Update: {
           id?: string;
-          saint_family?: string;
+          saint_family?: string | null;
+          recipient_name?: string | null;
           transaction_date?: string;
           transaction_type?: string;
           category?: string;
@@ -388,6 +395,8 @@ export interface Database {
           description?: string | null;
           reference?: string | null;
           created_by?: string | null;
+          created_by_email?: string | null;
+          affects_metric?: boolean;
           created_at?: string;
           updated_at?: string;
         };
@@ -919,6 +928,39 @@ export interface Database {
           p_monthly: number;
           p_study: number;
           p_therapeutic: number;
+        };
+        Returns: string;
+      };
+      record_treasury_transaction: {
+        Args: {
+          p_saint_family: string | null;
+          p_transaction_date: string;
+          p_transaction_type: string;
+          p_category: string;
+          p_amount: number;
+          p_description: string;
+          p_reference: string | null;
+          p_recipient_name?: string | null;
+        };
+        Returns: string;
+      };
+      update_treasury_transaction: {
+        Args: {
+          p_id: string;
+          p_saint_family: string | null;
+          p_transaction_date: string;
+          p_transaction_type: string;
+          p_category: string;
+          p_amount: number;
+          p_description: string;
+          p_reference: string | null;
+          p_recipient_name?: string | null;
+        };
+        Returns: string;
+      };
+      delete_treasury_transaction: {
+        Args: {
+          p_id: string;
         };
         Returns: string;
       };

@@ -4,6 +4,12 @@
  * Financial records are stored per `saint_family` so the same values used by
  * RLS (`get_user_saint_family()`) and the beneficiary modules keep working.
  * Chart rows keep using the `dashboard_metrics.sector` labels.
+ *
+ * Accounting model:
+ * - Income is general treasury income (`saint_family = null`) and increases the
+ *   church service pool.
+ * - Expenses are targeted at one family + one support category, are deducted
+ *   from the general pool, and increase that family's category total.
  */
 
 export type TreasuryTransactionType = "income" | "expense";
@@ -47,12 +53,21 @@ export function getTreasuryFamilyForSector(sector: string | null | undefined): s
   return TREASURY_FAMILIES.find((f) => f.sector === sector)?.value ?? null;
 }
 
+/** Family/ledger label for a transaction row (general income has no family). */
+export function getTreasuryTransactionFamilyLabel(
+  value: string | null | undefined,
+  type: TreasuryTransactionType | string,
+): string {
+  if (!value) return type === "income" ? "الخزنة العامة" : "غير محددة";
+  return getTreasuryFamilyLabel(value);
+}
+
 export const TREASURY_TRANSACTION_TYPES: Array<{
   value: TreasuryTransactionType;
   label: string;
 }> = [
-  { value: "income", label: "إيراد" },
-  { value: "expense", label: "مصروف" },
+  { value: "income", label: "إيراد عام للخزنة" },
+  { value: "expense", label: "مصروف مخصص لأسرة" },
 ];
 
 export function getTreasuryTypeLabel(type: string): string {
@@ -60,28 +75,81 @@ export function getTreasuryTypeLabel(type: string): string {
 }
 
 /**
- * Suggested categories. The database stores the Arabic value directly so
- * exports and filters remain readable without a lookup table.
+ * Targeted expense categories. These map 1:1 to the financial metric columns
+ * used by the main dashboard charts (monthly / therapeutic / study).
  */
-export const TREASURY_CATEGORIES: Array<{
-  value: string;
+export type TreasuryExpenseCategory = "شهريات" | "مساعدات علاجية" | "مساعدات دراسية";
+export type TreasuryMetricKey = "monthly" | "study" | "therapeutic";
+
+export const TREASURY_EXPENSE_CATEGORY_VALUES = [
+  "شهريات",
+  "مساعدات علاجية",
+  "مساعدات دراسية",
+] as const;
+
+export const TREASURY_EXPENSE_CATEGORIES: Array<{
+  value: TreasuryExpenseCategory;
   label: string;
-  type: TreasuryTransactionType;
+  metricKey: TreasuryMetricKey;
 }> = [
-  { value: "تبرعات", label: "تبرعات", type: "income" },
-  { value: "عشور", label: "عشور", type: "income" },
-  { value: "صندوق الخدمة", label: "صندوق الخدمة", type: "income" },
-  { value: "إيراد آخر", label: "إيراد آخر", type: "income" },
-  { value: "مساعدات شهرية", label: "مساعدات شهرية", type: "expense" },
-  { value: "مساعدات دراسية", label: "مساعدات دراسية", type: "expense" },
-  { value: "مساعدات علاجية", label: "مساعدات علاجية", type: "expense" },
-  { value: "مصاريف خدمة", label: "مصاريف خدمة", type: "expense" },
-  { value: "مصروف آخر", label: "مصروف آخر", type: "expense" },
+  { value: "شهريات", label: "شهريات", metricKey: "monthly" },
+  { value: "مساعدات علاجية", label: "مساعدات علاجية", metricKey: "therapeutic" },
+  { value: "مساعدات دراسية", label: "مساعدات دراسية", metricKey: "study" },
 ];
 
+/** General treasury income sources (not tied to any family). */
+export const TREASURY_INCOME_CATEGORIES = [
+  "تبرعات",
+  "تبرعات عامة",
+  "عشور",
+  "صندوق الخدمة",
+  "إيراد آخر",
+] as const;
+
+/** The three support categories shown on the dashboard cards. */
+export const FINANCIAL_METRIC_CATEGORIES: Array<{
+  key: TreasuryMetricKey;
+  label: string;
+  shortLabel: string;
+  className: string;
+}> = [
+  { key: "monthly", label: "الشهريات", shortLabel: "شهريات", className: "text-sky" },
+  { key: "study", label: "مساعدات دراسية", shortLabel: "دراسية", className: "text-teal" },
+  {
+    key: "therapeutic",
+    label: "مساعدات علاجية",
+    shortLabel: "علاجية",
+    className: "text-chart-3",
+  },
+];
+
+/** Normalise legacy category labels to the canonical workflow values. */
+export function normalizeTreasuryCategory(value: string): string {
+  const trimmed = value.trim();
+  if (trimmed === "مساعدات شهرية" || trimmed === "الشهريات") return "شهريات";
+  return trimmed;
+}
+
+export function isTreasuryExpenseCategory(value: string): value is TreasuryExpenseCategory {
+  return (TREASURY_EXPENSE_CATEGORY_VALUES as readonly string[]).includes(
+    normalizeTreasuryCategory(value),
+  );
+}
+
+export function getTreasuryExpenseMetricKey(
+  category: string | null | undefined,
+): TreasuryMetricKey | null {
+  if (!category) return null;
+  const normalized = normalizeTreasuryCategory(category);
+  return TREASURY_EXPENSE_CATEGORIES.find((c) => c.value === normalized)?.metricKey ?? null;
+}
+
 export function getTreasuryCategoriesForType(type: TreasuryTransactionType | "all"): string[] {
-  if (type === "all") return Array.from(new Set(TREASURY_CATEGORIES.map((c) => c.value)));
-  return TREASURY_CATEGORIES.filter((c) => c.type === type).map((c) => c.value);
+  if (type === "income") return [...TREASURY_INCOME_CATEGORIES];
+  if (type === "expense") return [...TREASURY_EXPENSE_CATEGORY_VALUES];
+  return Array.from(
+    new Set<string>([...TREASURY_INCOME_CATEGORIES, ...TREASURY_EXPENSE_CATEGORY_VALUES]),
+  );
 }
 
 export type TreasuryMetric = {
@@ -95,9 +163,57 @@ export type TreasuryMetric = {
   updated_by?: string | null;
 };
 
+export type FinancialMetricLike = {
+  id?: string;
+  sector: string;
+  monthly: number | string;
+  study: number | string;
+  therapeutic: number | string;
+};
+
+export type FinancialTotals = {
+  monthly: number;
+  study: number;
+  therapeutic: number;
+  total: number;
+};
+
+/** Sum the dashboard metrics, optionally including the hidden families row. */
+export function sumFinancialMetrics(
+  metrics: readonly FinancialMetricLike[],
+  hidden?: FinancialMetricLike | null,
+): FinancialTotals {
+  const rows = [...metrics];
+  if (
+    hidden &&
+    !rows.some(
+      (row) =>
+        (row.id !== undefined && row.id === hidden.id) ||
+        (row.sector && row.sector === hidden.sector),
+    )
+  ) {
+    rows.push(hidden);
+  }
+
+  return rows.reduce<FinancialTotals>(
+    (totals, row) => ({
+      monthly: totals.monthly + Number(row.monthly ?? 0),
+      study: totals.study + Number(row.study ?? 0),
+      therapeutic: totals.therapeutic + Number(row.therapeutic ?? 0),
+      total:
+        totals.total +
+        Number(row.monthly ?? 0) +
+        Number(row.study ?? 0) +
+        Number(row.therapeutic ?? 0),
+    }),
+    { monthly: 0, study: 0, therapeutic: 0, total: 0 },
+  );
+}
+
 export type TreasuryTransaction = {
   id: string;
-  saint_family: string;
+  saint_family: string | null;
+  recipient_name: string | null;
   transaction_date: string;
   transaction_type: TreasuryTransactionType;
   category: string;
@@ -105,6 +221,7 @@ export type TreasuryTransaction = {
   description: string | null;
   reference: string | null;
   created_by: string | null;
+  created_by_email: string | null;
   created_at: string;
   updated_at: string;
 };
@@ -126,6 +243,7 @@ export type TreasuryScope = {
 
 export type TreasuryDashboardData = {
   metrics: TreasuryMetric[];
+  hiddenFamilies: TreasuryMetric | null;
   transactions: TreasuryTransaction[];
   summary: TreasurySummary;
   familySummary: Record<string, TreasuryFamilySummary>;
@@ -194,30 +312,22 @@ export function buildTreasuryCsv({
   lines.push(csvRow(["من تاريخ", filters.dateFrom || "البداية"]));
   lines.push(csvRow(["إلى تاريخ", filters.dateTo || "النهاية"]));
   lines.push(csvRow(["نوع الحركة", filters.typeLabel]));
-  lines.push(csvRow(["التصنيف", filters.categoryLabel]));
-  lines.push(csvRow(["الأسرة", filters.familyLabel]));
+  lines.push(csvRow(["البند", filters.categoryLabel]));
+  lines.push(csvRow(["الأسرة / الجهة", filters.familyLabel]));
   lines.push(csvRow([]));
 
   lines.push(csvRow(["ملخص الفترة"]));
-  lines.push(csvRow(["إجمالي الإيرادات", summary.income]));
-  lines.push(csvRow(["إجمالي المصروفات", summary.expense]));
-  lines.push(csvRow(["الرصيد", summary.balance]));
+  lines.push(csvRow(["إجمالي الإيرادات العامة", summary.income]));
+  lines.push(csvRow(["إجمالي المصروفات المخصصة", summary.expense]));
+  lines.push(csvRow(["رصيد الخزنة العامة", summary.balance]));
   lines.push(csvRow(["عدد الحركات", summary.count]));
   lines.push(csvRow([]));
 
   lines.push(csvRow(["ملخص الأسر"]));
-  lines.push(csvRow(["الأسرة", "الإيرادات", "المصروفات", "الرصيد", "عدد الحركات"]));
+  lines.push(csvRow(["الأسرة", "الإيرادات المخصصة", "المصروفات", "الرصيد", "عدد الحركات"]));
   for (const family of TREASURY_FAMILIES) {
     const totals = familySummary[family.value] ?? emptyTreasurySummary();
-    lines.push(
-      csvRow([
-        family.label,
-        totals.income,
-        totals.expense,
-        totals.balance,
-        totals.count,
-      ]),
-    );
+    lines.push(csvRow([family.label, totals.income, totals.expense, totals.balance, totals.count]));
   }
   lines.push(csvRow([]));
 
@@ -226,12 +336,14 @@ export function buildTreasuryCsv({
     csvRow([
       "م",
       "التاريخ",
-      "الأسرة",
       "النوع",
-      "التصنيف",
+      "الأسرة / الجهة",
+      "البند",
+      "المستلم",
       "المبلغ",
-      "الوصف",
+      "ملاحظات الحركة",
       "المرجع",
+      "أنشأها",
       "تاريخ التسجيل",
     ]),
   );
@@ -241,13 +353,15 @@ export function buildTreasuryCsv({
       csvRow([
         index + 1,
         row.transaction_date,
-        getTreasuryFamilyLabel(row.saint_family),
         getTreasuryTypeLabel(row.transaction_type),
+        getTreasuryTransactionFamilyLabel(row.saint_family, row.transaction_type),
         row.category,
+        row.recipient_name ?? "",
         row.amount,
         row.description ?? "",
         row.reference ?? "",
-        row.created_at ? new Date(row.created_at).toLocaleDateString("ar-EG") : "",
+        row.created_by_email ?? "",
+        row.created_at ? new Date(row.created_at).toLocaleString("ar-EG") : "",
       ]),
     );
   });

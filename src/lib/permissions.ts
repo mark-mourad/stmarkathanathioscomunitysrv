@@ -117,27 +117,22 @@ const ROLE_PERMISSIONS: Record<Role, Permission[]> = {
   ],
   ST_MATTHEW: [
     "view:dashboard", "view:beneficiary", "view:blessing-distribution", "view:furniture", "view:clothes", "view:pharmacy",
-    "view:treasury",
     "add:beneficiary", "edit:beneficiary",
   ],
   ST_MARK: [
     "view:dashboard", "view:beneficiary", "view:blessing-distribution", "view:furniture", "view:clothes", "view:pharmacy",
-    "view:treasury",
     "add:beneficiary", "edit:beneficiary",
   ],
   ST_JOHN: [
     "view:dashboard", "view:beneficiary", "view:blessing-distribution", "view:furniture", "view:clothes", "view:pharmacy",
-    "view:treasury",
     "add:beneficiary", "edit:beneficiary",
   ],
   ST_LUKE: [
     "view:dashboard", "view:beneficiary", "view:blessing-distribution", "view:furniture", "view:clothes", "view:pharmacy",
-    "view:treasury",
     "add:beneficiary", "edit:beneficiary",
   ],
   ST_HIDDEN_FAMILIES: [
     "view:dashboard", "view:beneficiary", "view:blessing-distribution", "view:furniture", "view:clothes", "view:pharmacy",
-    "view:treasury",
     "add:beneficiary", "edit:beneficiary",
   ],
   BLESSING_DISTRIBUTOR: [

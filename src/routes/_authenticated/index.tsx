@@ -16,16 +16,12 @@ import {
   Package,
   Shirt,
   Sofa,
-  TrendingUp,
-  BookOpen,
-  Stethoscope,
-  DollarSign,
   Activity,
   Pill,
 } from "lucide-react";
 import { toast } from "sonner";
 import { getFamilyScopeForRole, getHomeRouteForRole } from "@/lib/permissions";
-import { HiddenFamiliesPieCard, SectorBarChart } from "@/components/financial-metrics-charts";
+import { FinancialCharts, FinancialSummaryCards } from "@/components/financial-overview";
 
 export const Route = createFileRoute("/_authenticated/")({
   head: () => ({ meta: [{ title: "اللوحة الرئيسية" }] }),
@@ -95,28 +91,6 @@ function Dashboard() {
       : [];
   const scopedHiddenFamilies = isAdmin ? hiddenFamilies : null;
 
-  const hiddenMonthly = scopedHiddenFamilies ? Number(scopedHiddenFamilies.monthly) : 0;
-  const hiddenStudy = scopedHiddenFamilies ? Number(scopedHiddenFamilies.study) : 0;
-  const hiddenTherapeutic = scopedHiddenFamilies ? Number(scopedHiddenFamilies.therapeutic) : 0;
-
-  const totalMonthly = scopedMetrics.reduce((s, m) => s + Number(m.monthly), 0) + hiddenMonthly;
-  const totalStudy = scopedMetrics.reduce((s, m) => s + Number(m.study), 0) + hiddenStudy;
-  const totalTherapeutic =
-    scopedMetrics.reduce((s, m) => s + Number(m.therapeutic), 0) + hiddenTherapeutic;
-  const total = totalMonthly + totalStudy + totalTherapeutic;
-
-  const summaryCards = [
-    { label: "إجمالي الخارج", value: total, icon: DollarSign, color: "bg-primary/10 text-primary" },
-    { label: "الشهريات", value: totalMonthly, icon: TrendingUp, color: "bg-sky/15 text-sky" },
-    { label: "مساعدات دراسية", value: totalStudy, icon: BookOpen, color: "bg-teal/15 text-teal" },
-    {
-      label: "مساعدات علاجية",
-      value: totalTherapeutic,
-      icon: Stethoscope,
-      color: "bg-chart-3/15 text-foreground",
-    },
-  ];
-
   if (role === "CLOTHES_MANAGER" || role === "TREASURER") {
     return (
       <div className="text-center py-8 text-muted-foreground">
@@ -129,29 +103,11 @@ function Dashboard() {
     <div className="space-y-4 sm:space-y-6 md:space-y-8">
       {/* ═══════ Zone 1: Summary Cards — Admins (global) & family servants (scoped to assigned family) ═══════ */}
       {(isAdmin || isFamilyServant) && (
-        <section className="grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-4">
-          {summaryCards.map((card) => (
-            <article
-              key={card.label}
-              className="paper-card !p-3 sm:!p-6 flex flex-col items-start gap-2 sm:flex-row sm:items-center sm:gap-4"
-              onDoubleClick={() =>
-                isAdmin && card.label === "إجمالي الخارج" && metrics[0] && setEditing(metrics[0])
-              }
-            >
-              <div className={`rounded-xl p-2 sm:p-3 shrink-0 ${card.color}`}>
-                <card.icon size={22} className="size-[18px] sm:size-[22px]" />
-              </div>
-              <div className="min-w-0 w-full sm:w-auto">
-                <p className="text-[11px] sm:text-xs text-muted-foreground truncate">
-                  {card.label}
-                </p>
-                <p className="display text-lg sm:text-xl text-ink tabular-nums truncate">
-                  {card.value.toLocaleString("ar-EG")}
-                </p>
-              </div>
-            </article>
-          ))}
-        </section>
+        <FinancialSummaryCards
+          metrics={scopedMetrics}
+          hidden={scopedHiddenFamilies}
+          onTotalDoubleClick={() => isAdmin && metrics[0] && setEditing(metrics[0])}
+        />
       )}
 
       {/* ═══════ Quick Actions — Unified for ALL roles (click-intercepted) ═══════ */}
@@ -265,18 +221,13 @@ function Dashboard() {
 
       {/* ═══════ Zone 2: Charts Grid — Only for SUPER_ADMIN & ADMIN ═══════ */}
       {isAdmin && (
-        <section className="grid grid-cols-1 gap-4 sm:gap-6 lg:grid-cols-2">
-          <SectorBarChart
-            metrics={metrics}
-            editable
-            onEdit={() => metrics[0] && setEditing(metrics[0])}
-          />
-          <HiddenFamiliesPieCard
-            metric={scopedHiddenFamilies}
-            editable
-            onEdit={() => setEditingHidden(true)}
-          />
-        </section>
+        <FinancialCharts
+          metrics={metrics}
+          hidden={scopedHiddenFamilies}
+          editable
+          onEditMetric={() => metrics[0] && setEditing(metrics[0])}
+          onEditHidden={() => setEditingHidden(true)}
+        />
       )}
 
       {/* ═══════ Zone 3: Recent Activity ═══════ */}

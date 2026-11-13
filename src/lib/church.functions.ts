@@ -15,6 +15,7 @@ import {
   TREASURY_FAMILY_VALUES,
   TREASURY_FAMILIES,
   emptyTreasurySummary,
+  isTreasuryExpenseCategory,
   type TreasuryFamilySummary,
   type TreasurySummary,
   type TreasuryTransaction,
@@ -2629,13 +2630,17 @@ export const getPharmacyBeneficiaries = createServerFn({ method: "GET" })
 // ---- Treasury & Fund Manager (الخزنة / صندوق الخدمة) ----
 
 const TREASURY_SELECT_COLUMNS =
-  "id, saint_family, transaction_date, transaction_type, category, amount, description, reference, created_by, created_at, updated_at" as const;
+  "id, saint_family, recipient_name, transaction_date, transaction_type, category, amount, description, reference, created_by, created_by_email, created_at, updated_at" as const;
 
-const treasuryTransactionSchema = z.object({
-  saint_family: z.enum(TREASURY_FAMILY_VALUES as [string, ...string[]], {
-    required_error: "برجاء اختيار الأسرة",
-    invalid_type_error: "برجاء اختيار الأسرة بشكل صحيح",
-  }),
+const treasuryTransactionFields = {
+  saint_family: z
+    .enum(TREASURY_FAMILY_VALUES as [string, ...string[]], {
+      required_error: "برجاء اختيار الأسرة المستفيدة",
+      invalid_type_error: "برجاء اختيار الأسرة المستفيدة",
+    })
+    .nullable()
+    .optional(),
+  recipient_name: z.string().trim().max(200, "اسم المستلم طويل جداً").optional().nullable(),
   transaction_date: z
     .string()
     .regex(/^\d{4}-\d{2}-\d{2}$/, "برجاء اختيار تاريخ صحيح")
@@ -2651,7 +2656,7 @@ const treasuryTransactionSchema = z.object({
   transaction_type: z.enum(["income", "expense"], {
     required_error: "برجاء اختيار نوع الحركة",
   }),
-  category: z.string().trim().min(1, "برجاء إدخال التصنيف").max(120),
+  category: z.string().trim().min(1, "برجاء إدخال البند").max(120),
   amount: z
     .number({ required_error: "برجاء إدخال المبلغ" })
     .positive("المبلغ يجب أن يكون أكبر من صفر")
@@ -2662,7 +2667,49 @@ const treasuryTransactionSchema = z.object({
     .min(1, "برجاء إدخال ملاحظات / وصف الحركة")
     .max(2000),
   reference: z.string().trim().max(200).optional().nullable(),
-});
+} as const;
+
+function refineTreasuryTransaction(
+  data: {
+    transaction_type: "income" | "expense";
+    saint_family?: string | null;
+    recipient_name?: string | null;
+    category: string;
+  },
+  ctx: z.RefinementCtx,
+) {
+  if (data.transaction_type !== "expense") return;
+
+  if (!data.saint_family) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ["saint_family"],
+      message: "برجاء اختيار الأسرة المستفيدة",
+    });
+  }
+  if (!data.recipient_name || !data.recipient_name.trim()) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ["recipient_name"],
+      message: "برجاء إدخال اسم المستلم",
+    });
+  }
+  if (!isTreasuryExpenseCategory(data.category)) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ["category"],
+      message: "برجاء اختيار البند: شهريات أو مساعدات علاجية أو مساعدات دراسية",
+    });
+  }
+}
+
+const treasuryTransactionSchema = z
+  .object(treasuryTransactionFields)
+  .superRefine(refineTreasuryTransaction);
+
+const updateTreasuryTransactionSchema = z
+  .object({ ...treasuryTransactionFields, id: z.string().uuid() })
+  .superRefine(refineTreasuryTransaction);
 
 function addToTreasurySummary(summary: TreasurySummary, row: TreasuryTransaction) {
   const amount = Number(row.amount ?? 0);
@@ -2678,6 +2725,12 @@ export const getTreasuryDashboard = createServerFn({ method: "GET" })
     requirePermission(context, "view:treasury");
     const role = getServerRole(context);
     const isAdmin = role === "SUPER_ADMIN" || role === "ADMIN";
+    // The treasury screen is strictly limited to System Admins and the
+    // Treasurer. Family servants only see their family's read-only totals on
+    // the main dashboard.
+    if (!isAdmin && role !== "TREASURER") {
+      throw new Error("غير مصرح لك بهذا الإجراء");
+    }
     const scope = getFamilyScopeForRole(role);
     const saintFamily = scope?.saintFamily ?? null;
 
@@ -2699,10 +2752,9 @@ export const getTreasuryDashboard = createServerFn({ method: "GET" })
       hiddenFamilies = rows.find((m) => m.sector === HIDDEN_FAMILIES_SECTOR) ?? null;
     } else if (scope) {
       metrics = rows.filter((m) => m.sector === scope.sector);
-      hiddenFamilies =
-        scope.sector === HIDDEN_FAMILIES_SECTOR
-          ? (rows.find((m) => m.sector === HIDDEN_FAMILIES_SECTOR) ?? null)
-          : null;
+      // Mirror getDashboard(): a family servant only receives their own sector,
+      // never a separate hidden-families row.
+      hiddenFamilies = null;
     } else {
       metrics = [];
       hiddenFamilies = null;
@@ -2743,6 +2795,9 @@ export const getTreasuryDashboard = createServerFn({ method: "GET" })
 
     for (const row of allTransactions) {
       addToTreasurySummary(summary, row);
+      // General treasury income is not tied to any family, so it only
+      // contributes to the church-wide summary.
+      if (!row.saint_family) continue;
       if (!familySummary[row.saint_family]) {
         familySummary[row.saint_family] = emptyTreasurySummary();
       }
@@ -2757,7 +2812,7 @@ export const getTreasuryDashboard = createServerFn({ method: "GET" })
     return {
       metrics,
       hiddenFamilies,
-      transactions: canManage ? allTransactions : [],
+      transactions: allTransactions,
       summary,
       familySummary,
       canManage,
@@ -2775,33 +2830,39 @@ export const createTreasuryTransaction = createServerFn({ method: "POST" })
   .validator((d) => treasuryTransactionSchema.parse(d))
   .handler(async ({ data, context }) => {
     requirePermission(context, "manage:treasury");
-    const { data: created, error } = await context.supabase
-      .from("treasury_transactions")
-      .insert({ ...data, created_by: context.userId })
-      .select("id")
-      .single();
-    if (error || !created) throw new Error(error?.message ?? "فشل حفظ الحركة المالية");
-    return { id: created.id };
+    const generalIncome = data.transaction_type === "income";
+    const { data: id, error } = await context.supabase.rpc("record_treasury_transaction", {
+      p_saint_family: generalIncome ? null : (data.saint_family ?? null),
+      p_transaction_date: data.transaction_date,
+      p_transaction_type: data.transaction_type,
+      p_category: data.category,
+      p_amount: data.amount,
+      p_description: data.description,
+      p_reference: data.reference ?? null,
+      p_recipient_name: generalIncome ? null : (data.recipient_name?.trim() ?? null),
+    });
+    if (error || !id) throw new Error(error?.message ?? "فشل حفظ الحركة المالية");
+    return { id };
   });
 
 export const updateTreasuryTransaction = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .validator((d) => treasuryTransactionSchema.extend({ id: z.string().uuid() }).parse(d))
+  .validator((d) => updateTreasuryTransactionSchema.parse(d))
   .handler(async ({ data, context }) => {
     requirePermission(context, "manage:treasury");
-    const { id, ...rest } = data;
-    const { data: existing, error: existingError } = await context.supabase
-      .from("treasury_transactions")
-      .select("id")
-      .eq("id", id)
-      .maybeSingle();
-    if (existingError) throw new Error(existingError.message);
-    if (!existing) throw new Error("لم يتم العثور على الحركة المالية");
-    const { error } = await context.supabase
-      .from("treasury_transactions")
-      .update(rest)
-      .eq("id", id);
-    if (error) throw new Error(error.message);
+    const generalIncome = data.transaction_type === "income";
+    const { data: id, error } = await context.supabase.rpc("update_treasury_transaction", {
+      p_id: data.id,
+      p_saint_family: generalIncome ? null : (data.saint_family ?? null),
+      p_transaction_date: data.transaction_date,
+      p_transaction_type: data.transaction_type,
+      p_category: data.category,
+      p_amount: data.amount,
+      p_description: data.description,
+      p_reference: data.reference ?? null,
+      p_recipient_name: generalIncome ? null : (data.recipient_name?.trim() ?? null),
+    });
+    if (error || !id) throw new Error(error?.message ?? "فشل تحديث الحركة المالية");
     return { id };
   });
 
@@ -2810,13 +2871,9 @@ export const deleteTreasuryTransaction = createServerFn({ method: "POST" })
   .validator((d) => z.object({ id: z.string().uuid() }).parse(d))
   .handler(async ({ data, context }) => {
     requirePermission(context, "manage:treasury");
-    const { data: deleted, error } = await context.supabase
-      .from("treasury_transactions")
-      .delete()
-      .eq("id", data.id)
-      .select("id")
-      .maybeSingle();
-    if (error) throw new Error(error.message);
-    if (!deleted) throw new Error("لم يتم العثور على الحركة المالية");
+    const { data: id, error } = await context.supabase.rpc("delete_treasury_transaction", {
+      p_id: data.id,
+    });
+    if (error || !id) throw new Error(error?.message ?? "لم يتم العثور على الحركة المالية");
     return { ok: true };
   });

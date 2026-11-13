@@ -89,6 +89,7 @@ function AuthedLayout() {
   }
 
   const roleLabel = role ? (ROLE_LABEL[role]?.ar ?? role) : "قراءة فقط";
+  const canViewTreasury = role === "TREASURER" || role === "ADMIN" || role === "SUPER_ADMIN";
 
   const handleForbiddenNav = (e: React.MouseEvent, to: string) => {
     if (isRouteForbidden(role, to)) {
@@ -223,15 +224,17 @@ function AuthedLayout() {
                         <History size={16} /> السجل
                       </Link>
                     </DropdownMenuItem>
-                    <DropdownMenuItem asChild>
-                      <Link
-                        to="/treasury"
-                        onClick={(e) => handleForbiddenNav(e, "/treasury")}
-                        className="flex items-center gap-2 cursor-pointer"
-                      >
-                        <Wallet size={16} /> الخزنة وصندوق الخدمة
-                      </Link>
-                    </DropdownMenuItem>
+                    {canViewTreasury && (
+                      <DropdownMenuItem asChild>
+                        <Link
+                          to="/treasury"
+                          onClick={(e) => handleForbiddenNav(e, "/treasury")}
+                          className="flex items-center gap-2 cursor-pointer"
+                        >
+                          <Wallet size={16} /> الخزنة وصندوق الخدمة
+                        </Link>
+                      </DropdownMenuItem>
+                    )}
                   </DropdownMenuContent>
                 </DropdownMenu>
               </>
@@ -360,12 +363,14 @@ function AuthedLayout() {
                     label="السجل"
                     onClick={() => setMobileOpen(false)}
                   />
-                  <MobileNavLink
-                    to="/treasury"
-                    icon={<Wallet size={18} />}
-                    label="الخزنة وصندوق الخدمة"
-                    onClick={() => setMobileOpen(false)}
-                  />
+                  {canViewTreasury && (
+                    <MobileNavLink
+                      to="/treasury"
+                      icon={<Wallet size={18} />}
+                      label="الخزنة وصندوق الخدمة"
+                      onClick={() => setMobileOpen(false)}
+                    />
+                  )}
                 </>
               </>
             )}
@@ -397,6 +402,9 @@ function AuthedLayout() {
 
 function isRouteForbidden(role: string | null, to: string): boolean {
   if (!role || role === "SUPER_ADMIN" || role === "ADMIN") return false;
+  // Treasury is restricted to the exclusive treasurer role (admins already
+  // returned above). Every other role sees read-only family totals on "/".
+  if (to === "/treasury") return role !== "TREASURER";
   // Exclusive clothes manager: only its dedicated screen is allowed. This is
   // checked before the "/" allowance so it is redirected away from the
   // dashboard (treasury/financials) as well.
